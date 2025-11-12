@@ -180,31 +180,37 @@ def get_user_notifications(db, user_id, unread_only=False, limit=50):
     Returns:
         list: List of Notification objects
     """
-    query = db.collection('notifications').where('userId', '==', user_id)
-    
-    if unread_only:
-        query = query.where('read', '==', False)
-    
-    # Order by timestamp descending (most recent first)
-    query = query.order_by('timestamp', direction='DESCENDING').limit(limit)
-    
-    notifications = []
-    for doc in query.stream():
-        data = doc.to_dict()
-        notification = Notification(
-            notification_id=data['notificationId'],
-            user_id=data['userId'],
-            notification_type=data['type'],
-            title=data['title'],
-            message=data['message'],
-            related_resource_id=data.get('relatedResourceId'),
-            read=data.get('read', False),
-            timestamp=data.get('timestamp'),
-            expires_at=data.get('expiresAt')
-        )
-        notifications.append(notification)
-    
-    return notifications
+    try:
+        query = db.collection('notifications').where('userId', '==', user_id)
+        
+        if unread_only:
+            query = query.where('read', '==', False)
+        
+        # Order by timestamp descending (most recent first)
+        # Note: This requires a Firestore index
+        query = query.order_by('timestamp', direction='DESCENDING').limit(limit)
+        
+        notifications = []
+        for doc in query.stream():
+            data = doc.to_dict()
+            notification = Notification(
+                notification_id=data['notificationId'],
+                user_id=data['userId'],
+                notification_type=data['type'],
+                title=data['title'],
+                message=data['message'],
+                related_resource_id=data.get('relatedResourceId'),
+                read=data.get('read', False),
+                timestamp=data.get('timestamp'),
+                expires_at=data.get('expiresAt')
+            )
+            notifications.append(notification)
+        
+        return notifications
+    except Exception as e:
+        # If query fails (e.g., missing index), return empty list
+        print(f"Error fetching notifications: {e}")
+        return []
 
 
 def mark_notification_as_read(db, notification_id):

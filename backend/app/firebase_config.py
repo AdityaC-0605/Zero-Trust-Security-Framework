@@ -19,11 +19,20 @@ def initialize_firebase():
         cred_path = os.getenv('FIREBASE_CREDENTIALS_PATH', './firebase-credentials.json')
         
         if os.path.exists(cred_path):
-            cred = credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-            _db = firestore.client()
-            _firebase_initialized = True
-            print("Firebase initialized successfully")
+            # Check if Firebase is already initialized
+            try:
+                firebase_admin.get_app()
+                # Already initialized, just get the client
+                _db = firestore.client()
+                _firebase_initialized = True
+                print("Firebase already initialized, using existing app")
+            except ValueError:
+                # Not initialized yet, initialize it
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+                _db = firestore.client()
+                _firebase_initialized = True
+                print("Firebase initialized successfully")
         else:
             print(f"Warning: Firebase credentials file not found at {cred_path}")
             print("Please download your Firebase service account credentials and place them at the specified path")

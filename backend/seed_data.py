@@ -614,16 +614,16 @@ def main():
     print("Zero Trust Security Framework - Seed Data Script")
     print("=" * 60)
     
-    # Initialize Firebase
-    print("\nInitializing Firebase...")
-    db = initialize_firebase()
+    # Get Firebase client (already initialized by imports)
+    print("\nGetting Firebase client...")
+    db = get_firestore_client()
     
     if not db:
-        print("✗ Failed to initialize Firebase. Please check your credentials.")
+        print("✗ Failed to get Firebase client. Please check your credentials.")
         print("  Make sure firebase-credentials.json exists in the backend directory.")
         sys.exit(1)
     
-    print("✓ Firebase initialized successfully")
+    print("✓ Firebase client ready")
     
     # Create test users
     user_ids = create_test_users(db)

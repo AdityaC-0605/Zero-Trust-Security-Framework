@@ -298,17 +298,28 @@ def get_access_history():
         if status_filter:
             query = query.where('decision', '==', status_filter)
         
-        # Order by timestamp (most recent first)
-        query = query.order_by('timestamp', direction='DESCENDING')
-        
-        # Get all matching documents
+        # Try to order by timestamp (requires Firestore index)
+        # If it fails, we'll just return unordered results
         all_requests = []
-        for doc in query.stream():
-            request_data = doc.to_dict()
-            # Convert timestamp to ISO format if it's a datetime object
-            if isinstance(request_data.get('timestamp'), datetime):
-                request_data['timestamp'] = request_data['timestamp'].isoformat()
-            all_requests.append(request_data)
+        try:
+            query = query.order_by('timestamp', direction='DESCENDING')
+            for doc in query.stream():
+                request_data = doc.to_dict()
+                # Convert timestamp to ISO format if it's a datetime object
+                if isinstance(request_data.get('timestamp'), datetime):
+                    request_data['timestamp'] = request_data['timestamp'].isoformat()
+                all_requests.append(request_data)
+        except Exception as query_error:
+            # If ordering fails (missing index), get without ordering
+            print(f"Warning: Could not order by timestamp: {query_error}")
+            query = requests_ref.where('userId', '==', user_id)
+            if status_filter:
+                query = query.where('decision', '==', status_filter)
+            for doc in query.stream():
+                request_data = doc.to_dict()
+                if isinstance(request_data.get('timestamp'), datetime):
+                    request_data['timestamp'] = request_data['timestamp'].isoformat()
+                all_requests.append(request_data)
         
         # Apply pagination
         total_count = len(all_requests)
@@ -323,6 +334,7 @@ def get_access_history():
         }), 200
     
     except Exception as e:
+        print(f"Error fetching access history: {e}")
         return jsonify({
             'success': False,
             'error': {
