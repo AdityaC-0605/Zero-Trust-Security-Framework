@@ -1,0 +1,71 @@
+services:
+  - type: web
+    name: zero-trust-backend
+    env: python
+    region: oregon
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 120 run:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: FIREBASE_CREDENTIALS_PATH
+        value: ./firebase-credentials.json
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_EXPIRATION_MINUTES
+        value: 60
+      - key: REFRESH_TOKEN_EXPIRATION_DAYS
+        value: 7
+      - key: SESSION_INACTIVITY_MINUTES
+        value: 30
+      - key: CORS_ORIGINS
+        sync: false
+      - key: PORT
+        value: 5000
+      - key: HOST
+        value: 0.0.0.0
+      - key: EMAIL_NOTIFICATIONS_ENABLED
+        value: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: ALERT_EMAIL
+        sync: false
+      - key: MAX_LOGIN_ATTEMPTS
+        value: 5
+      - key: LOCKOUT_DURATION_MINUTES
+        value: 30
+      - key: SESSION_TIMEOUT_MINUTES
+        value: 30
+      - key: MFA_LOCKOUT_ATTEMPTS
+        value: 3
+      - key: RATE_LIMIT_ACCESS_REQUESTS
+        value: 100/hour
+      - key: RATE_LIMIT_AUTH
+        value: 10/minute
+      - key: RATE_LIMIT_API
+        value: 1000/hour
+      - key: MAX_CONTENT_LENGTH_MB
+        value: 1
+      - key: PREFERRED_URL_SCHEME
+        value: https
+      - key: SESSION_COOKIE_SECURE
+        value: true
+      - key: LOG_RETENTION_DAYS
+        value: 90
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    healthCheckPath: /api/health
+    autoDeploy: true

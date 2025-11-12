@@ -3,7 +3,7 @@ Authorization Middleware
 Role-based access control decorators for API endpoints
 """
 
-from flask import request, jsonify
+from flask import request, jsonify, make_response
 from functools import wraps
 from app.services.auth_service import auth_service
 
@@ -11,7 +11,7 @@ from app.services.auth_service import auth_service
 def require_auth(f):
     """
     Decorator to require authentication for routes
-    Verifies JWT session token and adds user_id and user_role to request
+    Verifies JWT session token, checks inactivity timeout, and adds user info to request
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -28,20 +28,35 @@ def require_auth(f):
             }), 401
         
         try:
-            # Verify session token
-            payload = auth_service.verify_session_token(session_token)
+            # Verify session token (includes inactivity check)
+            payload = auth_service.verify_session_token(session_token, check_inactivity=True)
             request.user_id = payload['user_id']
             request.user_role = payload['role']
             request.user_email = payload.get('email')
+            
+            # Update last activity timestamp for non-GET requests
+            if request.method not in ['GET', 'HEAD', 'OPTIONS']:
+                auth_service.update_last_activity(payload['user_id'])
+            
             return f(*args, **kwargs)
         except Exception as e:
-            return jsonify({
+            error_message = str(e)
+            
+            # Clear cookies if session is invalid or expired
+            response = make_response(jsonify({
                 'success': False,
                 'error': {
                     'code': 'AUTH_INVALID_TOKEN',
-                    'message': str(e)
+                    'message': error_message
                 }
-            }), 401
+            }), 401)
+            
+            if "timeout" in error_message.lower() or "expired" in error_message.lower():
+                response.set_cookie('session_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
+                response.set_cookie('refresh_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
+                response.set_cookie('csrf_token', '', max_age=0, samesite='Strict')
+            
+            return response
     
     return decorated_function
 

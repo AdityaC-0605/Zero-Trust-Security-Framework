@@ -538,3 +538,170 @@ def get_audit_logs():
                 'message': str(e)
             }
         }), 500
+
+
+@bp.route('/analytics', methods=['GET'])
+@require_auth
+@require_admin
+def get_analytics():
+    """
+    Get system analytics and metrics (Admin only)
+    
+    Query Parameters:
+        - timeRange: Time range for analytics ('day', 'week', 'month', default: 'week')
+    
+    Returns:
+        Analytics data including:
+        - Total requests
+        - Approval rate
+        - Average confidence score
+        - Requests by role
+        - Top denied users
+        - Confidence score distribution
+    """
+    try:
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+        
+        db = get_firestore_client()
+        
+        # Get time range parameter
+        time_range = request.args.get('timeRange', 'week')
+        
+        # Calculate start date based on time range
+        now = datetime.utcnow()
+        if time_range == 'day':
+            start_date = now - timedelta(days=1)
+        elif time_range == 'month':
+            start_date = now - timedelta(days=30)
+        else:  # default to week
+            start_date = now - timedelta(days=7)
+        
+        # Fetch all access requests within time range
+        requests_ref = db.collection('accessRequests')
+        query = requests_ref.order_by('timestamp', direction='DESCENDING')
+        
+        all_requests = []
+        for doc in query.stream():
+            request_data = doc.to_dict()
+            
+            # Filter by date range
+            request_timestamp = request_data.get('timestamp')
+            if request_timestamp:
+                if hasattr(request_timestamp, 'replace'):
+                    request_datetime = request_timestamp
+                else:
+                    try:
+                        request_datetime = datetime.fromisoformat(str(request_timestamp).replace('Z', '+00:00'))
+                    except:
+                        continue
+                
+                # Check if within time range
+                if request_datetime.replace(tzinfo=None) >= start_date:
+                    all_requests.append(request_data)
+        
+        # Calculate metrics
+        total_requests = len(all_requests)
+        
+        # Count approved vs denied
+        approved_count = 0
+        denied_count = 0
+        confidence_scores = []
+        requests_by_role = defaultdict(int)
+        denied_by_user = defaultdict(int)
+        confidence_distribution = {
+            '0-20': 0,
+            '21-40': 0,
+            '41-60': 0,
+            '61-80': 0,
+            '81-100': 0
+        }
+        
+        for req in all_requests:
+            decision = req.get('decision', '')
+            user_role = req.get('userRole', 'unknown')
+            user_id = req.get('userId', '')
+            confidence_score = req.get('confidenceScore', 0)
+            
+            # Count approvals
+            if decision in ['granted', 'granted_with_mfa']:
+                approved_count += 1
+            elif decision == 'denied':
+                denied_count += 1
+                denied_by_user[user_id] += 1
+            
+            # Collect confidence scores
+            if confidence_score:
+                confidence_scores.append(confidence_score)
+                
+                # Categorize confidence score
+                if confidence_score <= 20:
+                    confidence_distribution['0-20'] += 1
+                elif confidence_score <= 40:
+                    confidence_distribution['21-40'] += 1
+                elif confidence_score <= 60:
+                    confidence_distribution['41-60'] += 1
+                elif confidence_score <= 80:
+                    confidence_distribution['61-80'] += 1
+                else:
+                    confidence_distribution['81-100'] += 1
+            
+            # Count by role
+            requests_by_role[user_role] += 1
+        
+        # Calculate approval rate
+        approval_rate = (approved_count / total_requests * 100) if total_requests > 0 else 0
+        
+        # Calculate average confidence
+        average_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
+        
+        # Get top denied users (top 5)
+        top_denied_users = []
+        sorted_denied = sorted(denied_by_user.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        for user_id, count in sorted_denied:
+            # Get user details
+            user = get_user_by_id(db, user_id)
+            if user:
+                top_denied_users.append({
+                    'userId': user_id,
+                    'name': user.name,
+                    'email': user.email,
+                    'role': user.role,
+                    'deniedCount': count
+                })
+            else:
+                top_denied_users.append({
+                    'userId': user_id,
+                    'name': 'Unknown User',
+                    'email': '',
+                    'role': 'unknown',
+                    'deniedCount': count
+                })
+        
+        # Prepare response
+        analytics = {
+            'totalRequests': total_requests,
+            'approvalRate': round(approval_rate, 2),
+            'averageConfidence': round(average_confidence, 2),
+            'requestsByRole': dict(requests_by_role),
+            'topDeniedUsers': top_denied_users,
+            'confidenceDistribution': confidence_distribution,
+            'timeRange': time_range,
+            'startDate': start_date.isoformat(),
+            'endDate': now.isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'analytics': analytics
+        }), 200
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {
+                'code': 'ANALYTICS_FAILED',
+                'message': str(e)
+            }
+        }), 500

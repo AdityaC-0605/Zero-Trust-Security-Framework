@@ -9,7 +9,9 @@ from app.services.auth_service import auth_service
 from app.services.policy_engine import policy_engine
 from app.models.access_request import create_access_request, get_access_request_by_id, update_access_request
 from app.models.user import get_user_by_id
+from app.models.notification import create_notification
 from app.firebase_config import get_firestore_client
+from app.middleware.security import rate_limit, sanitize_input, validate_request_size, get_sanitized_data
 from datetime import datetime, timedelta
 
 bp = Blueprint('access', __name__, url_prefix='/api/access')
@@ -106,6 +108,9 @@ def check_rate_limit(user_id, limit=10, window_hours=1):
 
 @bp.route('/request', methods=['POST'])
 @require_auth
+@rate_limit('access_request')
+@validate_request_size()
+@sanitize_input()
 def submit_access_request():
     """
     Submit new access request
@@ -210,7 +215,7 @@ def submit_access_request():
         })
         
         # Create notification for user
-        _create_notification(
+        _create_access_request_notification(
             db=db,
             user_id=user_id,
             request_id=access_request.request_id,
@@ -393,6 +398,9 @@ def get_request_details(request_id):
 
 @bp.route('/<request_id>/resubmit', methods=['PUT'])
 @require_auth
+@rate_limit('access_request')
+@validate_request_size()
+@sanitize_input()
 def resubmit_access_request(request_id):
     """
     Resubmit a denied access request with updated information
@@ -515,7 +523,7 @@ def resubmit_access_request(request_id):
         })
         
         # Create notification for user
-        _create_notification(
+        _create_access_request_notification(
             db=db,
             user_id=user_id,
             request_id=new_request.request_id,
@@ -563,7 +571,7 @@ def resubmit_access_request(request_id):
         }), status_code
 
 
-def _create_notification(db, user_id, request_id, decision, resource):
+def _create_access_request_notification(db, user_id, request_id, decision, resource):
     """
     Create notification for user about access request decision
     
@@ -575,42 +583,29 @@ def _create_notification(db, user_id, request_id, decision, resource):
         resource (str): Resource name
     """
     try:
-        import uuid
-        
         # Determine notification message based on decision
         if decision == 'granted':
             title = 'Access Request Approved'
             message = f'Your request for {resource} has been approved.'
-            notification_type = 'access_decision'
         elif decision == 'granted_with_mfa':
             title = 'Access Request Approved (MFA Required)'
             message = f'Your request for {resource} has been approved. MFA verification required.'
-            notification_type = 'access_decision'
         elif decision == 'denied':
             title = 'Access Request Denied'
             message = f'Your request for {resource} has been denied.'
-            notification_type = 'access_decision'
         else:
             title = 'Access Request Pending'
             message = f'Your request for {resource} is pending review.'
-            notification_type = 'access_decision'
         
-        # Create notification document
-        notification_id = str(uuid.uuid4())
-        notification_data = {
-            'notificationId': notification_id,
-            'userId': user_id,
-            'type': notification_type,
-            'title': title,
-            'message': message,
-            'relatedResourceId': request_id,
-            'read': False,
-            'timestamp': datetime.utcnow(),
-            'expiresAt': datetime.utcnow() + timedelta(days=30)
-        }
-        
-        # Save to Firestore
-        db.collection('notifications').document(notification_id).set(notification_data)
+        # Create notification using the model function
+        create_notification(
+            db=db,
+            user_id=user_id,
+            notification_type='access_decision',
+            title=title,
+            message=message,
+            related_resource_id=request_id
+        )
         
     except Exception as e:
         # Log error but don't fail the request

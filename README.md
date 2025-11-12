@@ -158,19 +158,196 @@ source venv/bin/activate
 python run.py      # Start development server
 ```
 
-## Next Steps
+## Deployment
 
-This is the initial project setup. The following features will be implemented in subsequent tasks:
+The application is ready for production deployment. We support multiple deployment platforms:
 
-1. Firebase Integration and Authentication Service
-2. Authentication UI Components
-3. Multi-Factor Authentication (MFA)
-4. Context Providers and State Management
-5. Protected Routes and Authorization
-6. Policy Engine Core Logic
-7. And more...
+### Quick Deployment (30 minutes)
 
-Refer to `.kiro/specs/zero-trust-security-framework/tasks.md` for the complete implementation plan.
+Follow the [QUICK_DEPLOY.md](./QUICK_DEPLOY.md) guide for the fastest path to production.
+
+**Recommended Stack**:
+- **Frontend**: Vercel or Firebase Hosting
+- **Backend**: Render or Google Cloud Run
+- **Database**: Firebase Firestore (already configured)
+
+### Comprehensive Deployment
+
+For detailed deployment instructions, see:
+
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide with all platforms
+- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Pre-deployment verification checklist
+- **[ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)** - Environment variables configuration
+- **[DEPLOYMENT_README.md](./DEPLOYMENT_README.md)** - Overview of deployment files
+
+### Automated Deployment
+
+Use the deployment script for automated deployment:
+
+```bash
+# Make script executable
+chmod +x deploy.sh
+
+# Deploy frontend
+./deploy.sh frontend
+
+# Deploy backend
+./deploy.sh backend
+
+# Deploy everything
+./deploy.sh all
+```
+
+### Deployment Features
+
+✅ Production-ready configuration files  
+✅ Docker support for containerized deployment  
+✅ Automated Firestore backups  
+✅ Error tracking with Sentry  
+✅ Health check endpoints  
+✅ Security headers and CORS configuration  
+✅ SSL/TLS support  
+✅ Monitoring and logging  
+
+## Features
+
+### Implemented
+
+- ✅ User Authentication (Email/Password)
+- ✅ Multi-Factor Authentication (MFA)
+- ✅ Role-Based Access Control (Student, Faculty, Admin)
+- ✅ Policy-Based Access Evaluation
+- ✅ Intent Analysis
+- ✅ Confidence Scoring
+- ✅ Access Request Management
+- ✅ Audit Logging
+- ✅ User Management (Admin)
+- ✅ Policy Configuration (Admin)
+- ✅ Analytics and Reporting
+- ✅ Real-Time Notifications
+- ✅ Session Management
+- ✅ Security Hardening
+- ✅ Firestore Integration
+- ✅ Seed Data and Default Policies
+- ✅ Integration Tests
+- ✅ Production Deployment Configuration
+
+### Architecture
+
+The application follows a three-tier architecture:
+
+1. **Presentation Layer**: React SPA with Tailwind CSS
+2. **Application Layer**: Flask REST API with business logic
+3. **Data Layer**: Firebase Authentication + Firestore
+
+For detailed architecture and design decisions, see `.kiro/specs/zero-trust-security-framework/design.md`.
+
+## Testing
+
+### Frontend Tests
+
+```bash
+cd frontend
+npm test              # Run tests in watch mode
+npm run test:ci       # Run tests once with coverage
+```
+
+### Backend Tests
+
+```bash
+cd backend
+source venv/bin/activate
+pytest                # Run all tests
+pytest -v             # Verbose output
+pytest --cov          # With coverage report
+```
+
+### Integration Tests
+
+```bash
+cd backend
+python run_integration_tests.py
+```
+
+## Monitoring and Maintenance
+
+### Health Checks
+
+```bash
+# Backend health check
+curl http://localhost:5000/api/health
+
+# Production
+curl https://your-backend-url.com/api/health
+```
+
+### Backups
+
+```bash
+cd backend
+
+# Manual backup
+python backup_firestore.py backup
+
+# Export specific collection
+python backup_firestore.py export users
+
+# Restore from backup
+python backup_firestore.py restore users backup_file.json
+```
+
+### Logs
+
+- **Frontend**: Browser console and Sentry (if configured)
+- **Backend**: Application logs and Sentry (if configured)
+- **Audit**: Firestore `auditLogs` collection
+
+## Security
+
+### Security Features
+
+- HTTPS/TLS enforcement
+- JWT token-based authentication
+- HttpOnly, Secure, SameSite cookies
+- CSRF protection
+- Rate limiting
+- Input sanitization
+- XSS protection
+- SQL injection prevention
+- MFA support
+- Account lockout after failed attempts
+- Session timeout
+- Comprehensive audit logging
+
+### Security Best Practices
+
+1. Never commit `.env` files or `firebase-credentials.json`
+2. Use strong, unique secrets for production
+3. Rotate secrets regularly (every 90 days)
+4. Keep dependencies updated
+5. Monitor security alerts
+6. Review audit logs regularly
+7. Use HTTPS in production
+8. Configure CORS with specific origins (no wildcards)
+
+## Documentation
+
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production deployment guide
+- **[QUICK_DEPLOY.md](./QUICK_DEPLOY.md)** - Quick start deployment
+- **[ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)** - Environment configuration
+- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Deployment checklist
+- **Design Document**: `.kiro/specs/zero-trust-security-framework/design.md`
+- **Requirements**: `.kiro/specs/zero-trust-security-framework/requirements.md`
+- **Tasks**: `.kiro/specs/zero-trust-security-framework/tasks.md`
+
+## Support
+
+For issues or questions:
+
+1. Check the documentation in the links above
+2. Review application logs
+3. Check platform-specific documentation (Vercel, Render, Firebase)
+4. Review the troubleshooting sections in deployment guides
 
 ## License
 

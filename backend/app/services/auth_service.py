@@ -8,6 +8,7 @@ import pyotp
 import os
 import io
 import base64
+import secrets
 from datetime import datetime, timedelta
 from firebase_admin import auth, firestore
 from cryptography.fernet import Fernet
@@ -22,6 +23,8 @@ class AuthService:
         self.jwt_secret = os.getenv('JWT_SECRET_KEY', 'dev_jwt_secret')
         self.jwt_algorithm = os.getenv('JWT_ALGORITHM', 'HS256')
         self.jwt_expiration_minutes = int(os.getenv('JWT_EXPIRATION_MINUTES', 60))
+        self.refresh_token_expiration_days = int(os.getenv('REFRESH_TOKEN_EXPIRATION_DAYS', 7))
+        self.session_inactivity_minutes = int(os.getenv('SESSION_INACTIVITY_MINUTES', 30))
         self.max_login_attempts = int(os.getenv('MAX_LOGIN_ATTEMPTS', 5))
         self.lockout_duration_minutes = int(os.getenv('LOCKOUT_DURATION_MINUTES', 30))
         self.mfa_lockout_attempts = int(os.getenv('MFA_LOCKOUT_ATTEMPTS', 3))
@@ -59,61 +62,166 @@ class AuthService:
     
     def create_session(self, user_id, user_data):
         """
-        Create JWT session token for authenticated user
+        Create JWT session token and refresh token for authenticated user
         
         Args:
             user_id (str): User ID
             user_data (dict): User information to include in token
             
         Returns:
-            str: JWT session token
+            dict: Session token, refresh token, and CSRF token
         """
         try:
-            expiration = datetime.utcnow() + timedelta(minutes=self.jwt_expiration_minutes)
+            # Create access token with 60-minute expiration
+            access_expiration = datetime.utcnow() + timedelta(minutes=self.jwt_expiration_minutes)
             
-            payload = {
+            access_payload = {
                 'user_id': user_id,
                 'email': user_data.get('email'),
                 'role': user_data.get('role'),
-                'exp': expiration,
-                'iat': datetime.utcnow()
+                'exp': access_expiration,
+                'iat': datetime.utcnow(),
+                'type': 'access',
+                'last_activity': datetime.utcnow().isoformat()
             }
             
-            token = jwt.encode(payload, self.jwt_secret, algorithm=self.jwt_algorithm)
-            return token
+            access_token = jwt.encode(access_payload, self.jwt_secret, algorithm=self.jwt_algorithm)
+            
+            # Create refresh token with 7-day expiration
+            refresh_expiration = datetime.utcnow() + timedelta(days=self.refresh_token_expiration_days)
+            refresh_token_id = secrets.token_urlsafe(32)
+            
+            refresh_payload = {
+                'user_id': user_id,
+                'token_id': refresh_token_id,
+                'exp': refresh_expiration,
+                'iat': datetime.utcnow(),
+                'type': 'refresh'
+            }
+            
+            refresh_token = jwt.encode(refresh_payload, self.jwt_secret, algorithm=self.jwt_algorithm)
+            
+            # Generate CSRF token
+            csrf_token = secrets.token_urlsafe(32)
+            
+            # Store refresh token and CSRF token in Firestore
+            self.db.collection('sessions').document(user_id).set({
+                'refreshTokenId': refresh_token_id,
+                'csrfToken': csrf_token,
+                'createdAt': datetime.utcnow(),
+                'expiresAt': refresh_expiration,
+                'lastActivity': datetime.utcnow()
+            })
+            
+            return {
+                'accessToken': access_token,
+                'refreshToken': refresh_token,
+                'csrfToken': csrf_token
+            }
         except Exception as e:
             raise Exception(f"Session creation failed: {str(e)}")
     
-    def verify_session_token(self, token):
+    def verify_session_token(self, token, check_inactivity=True):
         """
-        Verify JWT session token
+        Verify JWT session token and check for inactivity timeout
         
         Args:
             token (str): JWT session token
+            check_inactivity (bool): Whether to check for inactivity timeout
             
         Returns:
             dict: Decoded token payload
             
         Raises:
-            Exception: If token is invalid or expired
+            Exception: If token is invalid, expired, or inactive
         """
         try:
             payload = jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_algorithm])
+            
+            # Verify token type
+            if payload.get('type') != 'access':
+                raise Exception("Invalid token type")
+            
+            # Check inactivity timeout
+            if check_inactivity:
+                last_activity_str = payload.get('last_activity')
+                if last_activity_str:
+                    last_activity = datetime.fromisoformat(last_activity_str)
+                    inactivity_duration = datetime.utcnow() - last_activity
+                    
+                    if inactivity_duration.total_seconds() > (self.session_inactivity_minutes * 60):
+                        raise Exception("Session timeout due to inactivity")
+            
             return payload
         except jwt.ExpiredSignatureError:
             raise Exception("Session expired")
         except jwt.InvalidTokenError:
             raise Exception("Invalid session token")
     
+    def refresh_session_with_token(self, refresh_token):
+        """
+        Refresh session using refresh token with token rotation
+        
+        Args:
+            refresh_token (str): JWT refresh token
+            
+        Returns:
+            dict: New access token, refresh token, and CSRF token
+        """
+        try:
+            # Verify refresh token
+            payload = jwt.decode(refresh_token, self.jwt_secret, algorithms=[self.jwt_algorithm])
+            
+            # Verify token type
+            if payload.get('type') != 'refresh':
+                raise Exception("Invalid token type")
+            
+            user_id = payload['user_id']
+            token_id = payload['token_id']
+            
+            # Verify refresh token ID matches stored value
+            session_doc = self.db.collection('sessions').document(user_id).get()
+            if not session_doc.exists:
+                raise Exception("Session not found")
+            
+            session_data = session_doc.to_dict()
+            if session_data.get('refreshTokenId') != token_id:
+                # Token has already been used (possible replay attack)
+                # Invalidate all sessions for this user
+                self.invalidate_all_sessions(user_id)
+                raise Exception("Invalid refresh token - possible replay attack detected")
+            
+            # Get user data from Firestore
+            user_doc = self.db.collection('users').document(user_id).get()
+            if not user_doc.exists:
+                raise Exception("User not found")
+            
+            user_data = user_doc.to_dict()
+            
+            # Check if user is active
+            if not user_data.get('isActive', True):
+                raise Exception("Account has been disabled")
+            
+            # Create new session tokens (refresh token rotation)
+            new_tokens = self.create_session(user_id, user_data)
+            
+            return new_tokens
+        except jwt.ExpiredSignatureError:
+            raise Exception("Refresh token expired")
+        except jwt.InvalidTokenError:
+            raise Exception("Invalid refresh token")
+        except Exception as e:
+            raise Exception(f"Session refresh failed: {str(e)}")
+    
     def refresh_session(self, id_token):
         """
-        Refresh session token with new expiration
+        Refresh session token with new expiration using Firebase ID token
         
         Args:
             id_token (str): Firebase ID token
             
         Returns:
-            str: New JWT session token
+            dict: New session tokens
         """
         try:
             decoded_token = self.verify_firebase_token(id_token)
@@ -343,6 +451,111 @@ class AuthService:
             if "Account locked" in str(e):
                 raise
             raise Exception(f"MFA verification failed: {str(e)}")
+    
+    def verify_csrf_token(self, user_id, csrf_token):
+        """
+        Verify CSRF token for state-changing operations
+        
+        Args:
+            user_id (str): User ID
+            csrf_token (str): CSRF token from request
+            
+        Returns:
+            bool: True if token is valid
+            
+        Raises:
+            Exception: If token is invalid
+        """
+        try:
+            session_doc = self.db.collection('sessions').document(user_id).get()
+            if not session_doc.exists:
+                raise Exception("Session not found")
+            
+            session_data = session_doc.to_dict()
+            stored_csrf_token = session_data.get('csrfToken')
+            
+            if not stored_csrf_token or stored_csrf_token != csrf_token:
+                raise Exception("Invalid CSRF token")
+            
+            return True
+        except Exception as e:
+            raise Exception(f"CSRF verification failed: {str(e)}")
+    
+    def update_last_activity(self, user_id):
+        """
+        Update last activity timestamp for session
+        
+        Args:
+            user_id (str): User ID
+        """
+        try:
+            session_ref = self.db.collection('sessions').document(user_id)
+            session_ref.update({
+                'lastActivity': datetime.utcnow()
+            })
+        except Exception as e:
+            print(f"Error updating last activity: {str(e)}")
+    
+    def invalidate_session(self, user_id):
+        """
+        Invalidate user session
+        
+        Args:
+            user_id (str): User ID
+        """
+        try:
+            self.db.collection('sessions').document(user_id).delete()
+        except Exception as e:
+            print(f"Error invalidating session: {str(e)}")
+    
+    def invalidate_all_sessions(self, user_id):
+        """
+        Invalidate all sessions for a user (security measure)
+        
+        Args:
+            user_id (str): User ID
+        """
+        try:
+            # Delete session document
+            self.db.collection('sessions').document(user_id).delete()
+            
+            # Could also maintain a blacklist of tokens if needed
+            print(f"All sessions invalidated for user {user_id}")
+        except Exception as e:
+            print(f"Error invalidating all sessions: {str(e)}")
+    
+    def create_access_token_with_activity(self, user_id, user_data):
+        """
+        Create new access token with updated activity timestamp
+        
+        Args:
+            user_id (str): User ID
+            user_data (dict): User information
+            
+        Returns:
+            str: New access token
+        """
+        try:
+            access_expiration = datetime.utcnow() + timedelta(minutes=self.jwt_expiration_minutes)
+            
+            access_payload = {
+                'user_id': user_id,
+                'email': user_data.get('email'),
+                'role': user_data.get('role'),
+                'exp': access_expiration,
+                'iat': datetime.utcnow(),
+                'type': 'access',
+                'last_activity': datetime.utcnow().isoformat()
+            }
+            
+            access_token = jwt.encode(access_payload, self.jwt_secret, algorithm=self.jwt_algorithm)
+            
+            # Update last activity in session
+            self.update_last_activity(user_id)
+            
+            return access_token
+        except Exception as e:
+            raise Exception(f"Access token creation failed: {str(e)}")
     
     def send_security_alert(self, user_id, event_type, details):
         """

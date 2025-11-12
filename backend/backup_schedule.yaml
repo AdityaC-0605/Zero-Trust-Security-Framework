@@ -1,0 +1,32 @@
+# Google Cloud Scheduler configuration for automated backups
+# Deploy with: gcloud scheduler jobs create http backup-firestore --schedule="0 2 * * *" --uri="https://your-backend-url/api/admin/backup" --http-method=POST
+
+# Cron schedule for daily backups at 2 AM UTC
+schedule: "0 2 * * *"
+
+# Backup retention policy
+retention_days: 90
+
+# Notification settings
+notifications:
+  on_success: false
+  on_failure: true
+  email: admin@example.com
+
+# Backup configuration
+backup:
+  collections:
+    - users
+    - accessRequests
+    - auditLogs
+    - policies
+    - notifications
+    - systemConfig
+  
+  storage:
+    provider: gcs
+    bucket: ${PROJECT_ID}-backups
+    path: firestore-backups/
+  
+  compression: true
+  encryption: true

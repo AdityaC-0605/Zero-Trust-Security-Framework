@@ -9,6 +9,16 @@ from .policy import (
     create_default_policies
 )
 from .audit_log import AuditLog, create_audit_log, get_audit_logs
+from .notification import (
+    Notification,
+    create_notification,
+    get_notification_by_id,
+    get_user_notifications,
+    mark_notification_as_read,
+    mark_all_notifications_as_read,
+    delete_expired_notifications,
+    get_unread_count
+)
 
 __all__ = [
     'User', 
@@ -25,5 +35,13 @@ __all__ = [
     'create_default_policies',
     'AuditLog',
     'create_audit_log',
-    'get_audit_logs'
+    'get_audit_logs',
+    'Notification',
+    'create_notification',
+    'get_notification_by_id',
+    'get_user_notifications',
+    'mark_notification_as_read',
+    'mark_all_notifications_as_read',
+    'delete_expired_notifications',
+    'get_unread_count'
 ]

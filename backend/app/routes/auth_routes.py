@@ -8,6 +8,7 @@ from functools import wraps
 from app.services.auth_service import auth_service
 from app.models.user import create_user_document, get_user_by_id
 from app.firebase_config import get_firestore_client
+from app.middleware.security import rate_limit, sanitize_input, validate_request_size, get_sanitized_data
 from datetime import datetime, timedelta
 
 bp = Blueprint('auth', __name__, url_prefix='/api/auth')
@@ -46,24 +47,71 @@ def require_auth(f):
             }), 401
         
         try:
-            # Verify session token
-            payload = auth_service.verify_session_token(session_token)
+            # Verify session token (includes inactivity check)
+            payload = auth_service.verify_session_token(session_token, check_inactivity=True)
             request.user_id = payload['user_id']
             request.user_role = payload['role']
+            request.user_email = payload.get('email')
+            return f(*args, **kwargs)
+        except Exception as e:
+            error_message = str(e)
+            
+            # Clear cookies if session is invalid
+            response = make_response(jsonify({
+                'success': False,
+                'error': {
+                    'code': 'AUTH_INVALID_TOKEN',
+                    'message': error_message
+                }
+            }), 401)
+            
+            if "timeout" in error_message.lower() or "expired" in error_message.lower():
+                response.set_cookie('session_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
+                response.set_cookie('refresh_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
+                response.set_cookie('csrf_token', '', max_age=0, samesite='Strict')
+            
+            return response
+    
+    return decorated_function
+
+
+def require_csrf(f):
+    """Decorator to require CSRF token for state-changing operations"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Get CSRF token from header or form data
+        csrf_token = request.headers.get('X-CSRF-Token') or request.form.get('csrf_token')
+        
+        if not csrf_token:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'code': 'CSRF_TOKEN_MISSING',
+                    'message': 'CSRF token required'
+                }
+            }), 403
+        
+        try:
+            # Verify CSRF token
+            user_id = request.user_id
+            auth_service.verify_csrf_token(user_id, csrf_token)
             return f(*args, **kwargs)
         except Exception as e:
             return jsonify({
                 'success': False,
                 'error': {
-                    'code': 'AUTH_INVALID_TOKEN',
+                    'code': 'CSRF_TOKEN_INVALID',
                     'message': str(e)
                 }
-            }), 401
+            }), 403
     
     return decorated_function
 
 
 @bp.route('/register', methods=['POST'])
+@rate_limit('auth')
+@validate_request_size()
+@sanitize_input()
 def register():
     """
     Register new user
@@ -138,6 +186,9 @@ def register():
 
 
 @bp.route('/verify', methods=['POST'])
+@rate_limit('auth')
+@validate_request_size()
+@sanitize_input()
 def verify():
     """
     Verify Firebase ID token and create session
@@ -203,27 +254,48 @@ def verify():
                 }
             }), 403
         
-        # Create session token
-        session_token = auth_service.create_session(user_id, user.to_dict())
+        # Create session tokens (access, refresh, CSRF)
+        tokens = auth_service.create_session(user_id, user.to_dict())
         
         # Record successful login
         auth_service.record_successful_login(user_id, ip_address, device_info)
         
-        # Create response with HttpOnly cookie
+        # Create response with HttpOnly cookies
         response = make_response(jsonify({
             'success': True,
-            'sessionToken': session_token,
+            'sessionToken': tokens['accessToken'],
+            'csrfToken': tokens['csrfToken'],
             'user': user.to_public_dict()
         }))
         
-        # Set session token in HttpOnly, Secure, SameSite cookie
+        # Set access token in HttpOnly, Secure, SameSite=Strict cookie
         response.set_cookie(
             'session_token',
-            session_token,
+            tokens['accessToken'],
             httponly=True,
             secure=True,  # Requires HTTPS in production
             samesite='Strict',
             max_age=60 * 60  # 60 minutes
+        )
+        
+        # Set refresh token in HttpOnly, Secure, SameSite=Strict cookie
+        response.set_cookie(
+            'refresh_token',
+            tokens['refreshToken'],
+            httponly=True,
+            secure=True,
+            samesite='Strict',
+            max_age=7 * 24 * 60 * 60  # 7 days
+        )
+        
+        # Set CSRF token in regular cookie (accessible to JavaScript)
+        response.set_cookie(
+            'csrf_token',
+            tokens['csrfToken'],
+            httponly=False,  # Needs to be accessible to JavaScript
+            secure=True,
+            samesite='Strict',
+            max_age=7 * 24 * 60 * 60  # 7 days
         )
         
         return response, 200
@@ -247,63 +319,93 @@ def verify():
 
 
 @bp.route('/refresh', methods=['POST'])
+@rate_limit('auth')
 def refresh():
     """
-    Refresh session token
-    
-    Request Body:
-        - idToken: Firebase ID token
+    Refresh session token using refresh token (with token rotation)
     
     Returns:
-        New session token
+        New session tokens
     """
     try:
-        data = request.get_json()
+        # Get refresh token from cookie
+        refresh_token = request.cookies.get('refresh_token')
         
-        if 'idToken' not in data:
+        if not refresh_token:
             return jsonify({
                 'success': False,
                 'error': {
-                    'code': 'VALIDATION_ERROR',
-                    'message': 'Missing idToken'
+                    'code': 'REFRESH_TOKEN_MISSING',
+                    'message': 'Refresh token required'
                 }
-            }), 400
+            }), 401
         
-        # Refresh session
-        session_token = auth_service.refresh_session(data['idToken'])
+        # Refresh session with token rotation
+        tokens = auth_service.refresh_session_with_token(refresh_token)
         
         # Get user data
-        decoded_token = auth_service.verify_firebase_token(data['idToken'])
-        user_id = decoded_token['uid']
+        payload = auth_service.verify_session_token(tokens['accessToken'], check_inactivity=False)
+        user_id = payload['user_id']
         db = get_firestore_client()
         user = get_user_by_id(db, user_id)
         
-        # Create response with new cookie
+        # Create response with new cookies
         response = make_response(jsonify({
             'success': True,
-            'sessionToken': session_token,
+            'sessionToken': tokens['accessToken'],
+            'csrfToken': tokens['csrfToken'],
             'user': user.to_public_dict()
         }))
         
+        # Set new access token
         response.set_cookie(
             'session_token',
-            session_token,
+            tokens['accessToken'],
             httponly=True,
             secure=True,
             samesite='Strict',
             max_age=60 * 60
         )
         
+        # Set new refresh token (token rotation)
+        response.set_cookie(
+            'refresh_token',
+            tokens['refreshToken'],
+            httponly=True,
+            secure=True,
+            samesite='Strict',
+            max_age=7 * 24 * 60 * 60
+        )
+        
+        # Set new CSRF token
+        response.set_cookie(
+            'csrf_token',
+            tokens['csrfToken'],
+            httponly=False,
+            secure=True,
+            samesite='Strict',
+            max_age=7 * 24 * 60 * 60
+        )
+        
         return response, 200
     
     except Exception as e:
-        return jsonify({
+        error_message = str(e)
+        
+        # Clear cookies on refresh failure
+        response = make_response(jsonify({
             'success': False,
             'error': {
                 'code': 'REFRESH_FAILED',
-                'message': str(e)
+                'message': error_message
             }
-        }), 401
+        }), 401)
+        
+        response.set_cookie('session_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
+        response.set_cookie('refresh_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
+        response.set_cookie('csrf_token', '', max_age=0, samesite='Strict')
+        
+        return response
 
 
 @bp.route('/logout', methods=['POST'])
@@ -316,17 +418,40 @@ def logout():
         Success message
     """
     try:
+        user_id = request.user_id
+        
+        # Invalidate session in database
+        auth_service.invalidate_session(user_id)
+        
         # Create response
         response = make_response(jsonify({
             'success': True,
             'message': 'Logged out successfully'
         }))
         
-        # Clear session cookie
+        # Clear all session cookies
         response.set_cookie(
             'session_token',
             '',
             httponly=True,
+            secure=True,
+            samesite='Strict',
+            max_age=0
+        )
+        
+        response.set_cookie(
+            'refresh_token',
+            '',
+            httponly=True,
+            secure=True,
+            samesite='Strict',
+            max_age=0
+        )
+        
+        response.set_cookie(
+            'csrf_token',
+            '',
+            httponly=False,
             secure=True,
             samesite='Strict',
             max_age=0
@@ -339,6 +464,85 @@ def logout():
             'success': False,
             'error': {
                 'code': 'LOGOUT_FAILED',
+                'message': str(e)
+            }
+        }), 500
+
+
+@bp.route('/activity', methods=['POST'])
+@require_auth
+def update_activity():
+    """
+    Update last activity timestamp to prevent inactivity timeout
+    
+    Returns:
+        Success message
+    """
+    try:
+        user_id = request.user_id
+        
+        # Update last activity
+        auth_service.update_last_activity(user_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Activity updated'
+        }), 200
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {
+                'code': 'ACTIVITY_UPDATE_FAILED',
+                'message': str(e)
+            }
+        }), 500
+
+
+@bp.route('/session/status', methods=['GET'])
+@require_auth
+def session_status():
+    """
+    Check session status and return remaining time
+    
+    Returns:
+        Session status information
+    """
+    try:
+        session_token = request.cookies.get('session_token')
+        payload = auth_service.verify_session_token(session_token, check_inactivity=False)
+        
+        # Calculate remaining time
+        exp_timestamp = payload.get('exp')
+        iat_timestamp = payload.get('iat')
+        last_activity_str = payload.get('last_activity')
+        
+        now = datetime.utcnow()
+        expires_at = datetime.fromtimestamp(exp_timestamp) if exp_timestamp else None
+        issued_at = datetime.fromtimestamp(iat_timestamp) if iat_timestamp else None
+        last_activity = datetime.fromisoformat(last_activity_str) if last_activity_str else None
+        
+        remaining_seconds = (expires_at - now).total_seconds() if expires_at else 0
+        inactivity_seconds = (now - last_activity).total_seconds() if last_activity else 0
+        inactivity_remaining = (auth_service.session_inactivity_minutes * 60) - inactivity_seconds
+        
+        return jsonify({
+            'success': True,
+            'session': {
+                'active': True,
+                'expiresAt': expires_at.isoformat() if expires_at else None,
+                'issuedAt': issued_at.isoformat() if issued_at else None,
+                'lastActivity': last_activity.isoformat() if last_activity else None,
+                'remainingSeconds': max(0, int(remaining_seconds)),
+                'inactivityRemainingSeconds': max(0, int(inactivity_remaining))
+            }
+        }), 200
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': {
+                'code': 'SESSION_STATUS_FAILED',
                 'message': str(e)
             }
         }), 500
@@ -377,6 +581,9 @@ def setup_mfa():
 
 @bp.route('/mfa/verify', methods=['POST'])
 @require_auth
+@rate_limit('auth')
+@validate_request_size()
+@sanitize_input()
 def verify_mfa():
     """
     Verify MFA code
