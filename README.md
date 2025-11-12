@@ -160,25 +160,14 @@ python run.py      # Start development server
 
 ## Deployment
 
-The application is ready for production deployment. We support multiple deployment platforms:
+The application is ready for production deployment with support for multiple platforms.
 
-### Quick Deployment (30 minutes)
-
-Follow the [QUICK_DEPLOY.md](./QUICK_DEPLOY.md) guide for the fastest path to production.
+### Deployment Options
 
 **Recommended Stack**:
-- **Frontend**: Vercel or Firebase Hosting
-- **Backend**: Render or Google Cloud Run
+- **Frontend**: Vercel, Netlify, or Firebase Hosting
+- **Backend**: Render, Google Cloud Run, or Google App Engine
 - **Database**: Firebase Firestore (already configured)
-
-### Comprehensive Deployment
-
-For detailed deployment instructions, see:
-
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide with all platforms
-- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Pre-deployment verification checklist
-- **[ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)** - Environment variables configuration
-- **[DEPLOYMENT_README.md](./DEPLOYMENT_README.md)** - Overview of deployment files
 
 ### Automated Deployment
 
@@ -198,16 +187,32 @@ chmod +x deploy.sh
 ./deploy.sh all
 ```
 
+### Platform-Specific Configuration
+
+The project includes configuration files for various platforms:
+
+- **Google Cloud**: `backend/app.yaml` and `backend/cloudbuild.yaml`
+- **Render**: `backend/render.yaml`
+- **Docker**: `backend/Dockerfile` and `backend/.dockerignore`
+- **Firestore**: `backend/firestore.indexes.json` and `backend/firestore.rules`
+
+### Firestore Deployment
+
+Deploy Firestore rules and indexes:
+
+```bash
+cd backend
+./deploy-firestore.sh
+```
+
 ### Deployment Features
 
 ✅ Production-ready configuration files  
 ✅ Docker support for containerized deployment  
-✅ Automated Firestore backups  
-✅ Error tracking with Sentry  
 ✅ Health check endpoints  
 ✅ Security headers and CORS configuration  
 ✅ SSL/TLS support  
-✅ Monitoring and logging  
+✅ Firestore rules and indexes  
 
 ## Features
 
@@ -266,7 +271,8 @@ pytest --cov          # With coverage report
 
 ```bash
 cd backend
-python run_integration_tests.py
+source venv/bin/activate
+pytest tests/
 ```
 
 ## Monitoring and Maintenance
@@ -281,19 +287,14 @@ curl http://localhost:5000/api/health
 curl https://your-backend-url.com/api/health
 ```
 
-### Backups
+### Seed Data
+
+Initialize the database with default policies and test data:
 
 ```bash
 cd backend
-
-# Manual backup
-python backup_firestore.py backup
-
-# Export specific collection
-python backup_firestore.py export users
-
-# Restore from backup
-python backup_firestore.py restore users backup_file.json
+source venv/bin/activate
+python seed_data.py
 ```
 
 ### Logs
@@ -332,10 +333,7 @@ python backup_firestore.py restore users backup_file.json
 
 ## Documentation
 
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Production deployment guide
-- **[QUICK_DEPLOY.md](./QUICK_DEPLOY.md)** - Quick start deployment
-- **[ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)** - Environment configuration
-- **[DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)** - Deployment checklist
+- **Backend README**: `backend/README.md` - Backend-specific documentation
 - **Design Document**: `.kiro/specs/zero-trust-security-framework/design.md`
 - **Requirements**: `.kiro/specs/zero-trust-security-framework/requirements.md`
 - **Tasks**: `.kiro/specs/zero-trust-security-framework/tasks.md`
@@ -344,10 +342,10 @@ python backup_firestore.py restore users backup_file.json
 
 For issues or questions:
 
-1. Check the documentation in the links above
-2. Review application logs
-3. Check platform-specific documentation (Vercel, Render, Firebase)
-4. Review the troubleshooting sections in deployment guides
+1. Check the backend README (`backend/README.md`) for detailed setup instructions
+2. Review application logs and health check endpoints
+3. Check platform-specific documentation (Vercel, Render, Firebase, Google Cloud)
+4. Review the design document for architecture details
 
 ## License
 
