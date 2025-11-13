@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from app.firebase_config import get_firestore_client
 from app.services.intent_analyzer import intent_analyzer
+from app.services.contextual_intelligence import contextual_intelligence
+import os
 
 
 class PolicyEngine:
@@ -15,13 +17,18 @@ class PolicyEngine:
     # Decision thresholds
     AUTO_APPROVE_THRESHOLD = 90
     REQUIRE_MFA_THRESHOLD = 50
+    CONTEXT_SCORE_THRESHOLD = 50  # Require step-up auth if context score < 50
     
-    # Confidence score weights
-    WEIGHT_ROLE_MATCH = 0.30
-    WEIGHT_INTENT_CLARITY = 0.25
-    WEIGHT_HISTORICAL_PATTERN = 0.20
-    WEIGHT_CONTEXT_VALIDITY = 0.15
+    # Confidence score weights (adjusted to include contextual intelligence)
+    WEIGHT_ROLE_MATCH = 0.25
+    WEIGHT_INTENT_CLARITY = 0.20
+    WEIGHT_HISTORICAL_PATTERN = 0.15
+    WEIGHT_CONTEXT_VALIDITY = 0.10
     WEIGHT_ANOMALY_DETECTION = 0.10
+    WEIGHT_CONTEXTUAL_INTELLIGENCE = 0.20  # New weight for contextual intelligence
+    
+    # Check if contextual intelligence is enabled
+    CONTEXTUAL_INTELLIGENCE_ENABLED = os.getenv('CONTEXT_EVALUATION_ENABLED', 'false').lower() == 'true'
     
     def __init__(self):
         self.db = get_firestore_client()
@@ -66,10 +73,16 @@ class PolicyEngine:
             # Get user history for pattern analysis
             user_history = self._get_user_history(user_id, resource_type)
             
+            # Evaluate contextual intelligence if enabled
+            context_score_data = None
+            if self.CONTEXTUAL_INTELLIGENCE_ENABLED:
+                context_score_data = self._evaluate_contextual_intelligence(request_data)
+            
             # Calculate confidence score
             confidence_score, breakdown = self.calculate_confidence_score(
                 request_data, 
-                user_history
+                user_history,
+                context_score_data
             )
             
             # Get the highest priority policy
@@ -82,7 +95,7 @@ class PolicyEngine:
                 breakdown
             )
             
-            return {
+            result = {
                 'decision': decision_result['decision'],
                 'confidenceScore': confidence_score,
                 'message': decision_result['message'],
@@ -94,6 +107,13 @@ class PolicyEngine:
                     'minConfidence': primary_policy.get('rules', [{}])[0].get('minConfidence', 50)
                 }
             }
+            
+            # Add contextual breakdown if available
+            if context_score_data:
+                result['contextualBreakdown'] = context_score_data.get('component_scores', {})
+                result['contextualScore'] = context_score_data.get('overall_context_score', 0)
+            
+            return result
         
         except Exception as e:
             print(f"Error evaluating request: {str(e)}")
@@ -164,14 +184,16 @@ class PolicyEngine:
     def calculate_confidence_score(
         self, 
         request_data: Dict[str, Any], 
-        user_history: List[Dict[str, Any]]
+        user_history: List[Dict[str, Any]],
+        context_score_data: Optional[Dict[str, Any]] = None
     ) -> tuple[float, Dict[str, float]]:
         """
-        Calculate confidence score using weighted factors
+        Calculate confidence score using weighted factors including contextual intelligence
         
         Args:
             request_data (dict): Access request data
             user_history (list): User's historical access requests
+            context_score_data (dict): Contextual intelligence evaluation data
         
         Returns:
             tuple: (total_score, breakdown_dict)
@@ -198,13 +220,19 @@ class PolicyEngine:
         
         anomaly_score = self._detect_anomalies(request_data, user_history)
         
+        # Get contextual intelligence score if available
+        contextual_intelligence_score = 70  # Default neutral score
+        if context_score_data:
+            contextual_intelligence_score = context_score_data.get('overall_context_score', 70)
+        
         # Calculate weighted total score
         total_score = (
             role_match_score * self.WEIGHT_ROLE_MATCH +
             intent_clarity_score * self.WEIGHT_INTENT_CLARITY +
             historical_pattern_score * self.WEIGHT_HISTORICAL_PATTERN +
             context_validity_score * self.WEIGHT_CONTEXT_VALIDITY +
-            anomaly_score * self.WEIGHT_ANOMALY_DETECTION
+            anomaly_score * self.WEIGHT_ANOMALY_DETECTION +
+            contextual_intelligence_score * self.WEIGHT_CONTEXTUAL_INTELLIGENCE
         )
         
         # Ensure score is within bounds
@@ -215,7 +243,8 @@ class PolicyEngine:
             'intentClarity': round(intent_clarity_score, 2),
             'historicalPattern': round(historical_pattern_score, 2),
             'contextValidity': round(context_validity_score, 2),
-            'anomalyScore': round(anomaly_score, 2)
+            'anomalyScore': round(anomaly_score, 2),
+            'contextualIntelligence': round(contextual_intelligence_score, 2)
         }
         
         return round(total_score, 2), breakdown
@@ -339,6 +368,7 @@ class PolicyEngine:
     ) -> Dict[str, Any]:
         """
         Make access decision based on confidence score and policy rules
+        Includes contextual intelligence override for step-up authentication
         
         Args:
             confidence_score (float): Calculated confidence score
@@ -355,17 +385,24 @@ class PolicyEngine:
             min_confidence = primary_rule.get('minConfidence', self.REQUIRE_MFA_THRESHOLD)
             mfa_required = primary_rule.get('mfaRequired', False)
             
+            # Check contextual intelligence score for step-up auth requirement
+            contextual_score = breakdown.get('contextualIntelligence', 100)
+            requires_step_up_auth = contextual_score < self.CONTEXT_SCORE_THRESHOLD
+            
             # Decision logic based on thresholds
-            if confidence_score >= self.AUTO_APPROVE_THRESHOLD:
-                # High confidence - auto approve
+            if confidence_score >= self.AUTO_APPROVE_THRESHOLD and not requires_step_up_auth:
+                # High confidence and good context - auto approve
                 decision = 'granted'
                 message = 'Access granted based on high confidence score'
                 requires_mfa = mfa_required  # Only if policy explicitly requires it
             
-            elif confidence_score >= self.REQUIRE_MFA_THRESHOLD:
-                # Medium confidence - require MFA
+            elif confidence_score >= self.REQUIRE_MFA_THRESHOLD or requires_step_up_auth:
+                # Medium confidence or poor context - require MFA
                 decision = 'granted_with_mfa'
-                message = 'Access granted with MFA verification required'
+                if requires_step_up_auth:
+                    message = 'Access granted with MFA verification required due to contextual risk factors'
+                else:
+                    message = 'Access granted with MFA verification required'
                 requires_mfa = True
             
             else:
@@ -383,7 +420,8 @@ class PolicyEngine:
             return {
                 'decision': decision,
                 'message': message,
-                'mfaRequired': requires_mfa
+                'mfaRequired': requires_mfa,
+                'stepUpAuthRequired': requires_step_up_auth
             }
         
         except Exception as e:
@@ -391,7 +429,8 @@ class PolicyEngine:
             return {
                 'decision': 'denied',
                 'message': 'Error processing request',
-                'mfaRequired': False
+                'mfaRequired': False,
+                'stepUpAuthRequired': False
             }
     
     def _get_user_history(self, user_id: str, resource_type: str) -> List[Dict[str, Any]]:
@@ -587,10 +626,56 @@ class PolicyEngine:
         if breakdown.get('anomalyScore', 0) < 50:
             reasons.append('anomalous behavior detected')
         
+        if breakdown.get('contextualIntelligence', 100) < 50:
+            reasons.append('contextual risk factors (device, network, location, or time)')
+        
         if reasons:
             return f"Access denied: {', '.join(reasons)}"
         else:
             return f"Access denied: confidence score {confidence_score} below threshold"
+    
+    def _evaluate_contextual_intelligence(self, request_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Evaluate contextual intelligence for the access request
+        
+        Args:
+            request_data (dict): Access request data
+        
+        Returns:
+            dict: Contextual intelligence evaluation results or None
+        """
+        try:
+            user_id = request_data.get('userId')
+            device_info = request_data.get('deviceInfo', {})
+            network_info = request_data.get('networkInfo', {})
+            access_time = request_data.get('timestamp')
+            
+            # Convert timestamp if needed
+            if isinstance(access_time, str):
+                try:
+                    access_time = datetime.fromisoformat(access_time.replace('Z', '+00:00'))
+                except:
+                    access_time = datetime.utcnow()
+            elif not access_time:
+                access_time = datetime.utcnow()
+            
+            # Prepare network info with IP address
+            if not network_info.get('ip_address'):
+                network_info['ip_address'] = request_data.get('ipAddress')
+            
+            # Calculate overall context score
+            context_result = contextual_intelligence.calculate_overall_context_score(
+                user_id=user_id,
+                device_info=device_info,
+                network_info=network_info,
+                access_time=access_time
+            )
+            
+            return context_result
+            
+        except Exception as e:
+            print(f"Error evaluating contextual intelligence: {str(e)}")
+            return None
 
 
 # Singleton instance

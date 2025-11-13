@@ -1,0 +1,685 @@
+{
+  "info": {
+    "name": "Zero Trust AI Innovations API",
+    "description": "Complete API collection for Zero Trust AI Innovations feature set",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{session_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "session_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "user_12345",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Behavioral Biometrics",
+      "item": [
+        {
+          "name": "Capture Behavioral Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"keystroke\": [\n    {\n      \"key\": \"a\",\n      \"timestamp\": 1699564800123,\n      \"type\": \"down\"\n    },\n    {\n      \"key\": \"a\",\n      \"timestamp\": 1699564800245,\n      \"type\": \"up\"\n    }\n  ],\n  \"mouse\": [\n    {\n      \"x\": 450,\n      \"y\": 320,\n      \"timestamp\": 1699564800150\n    }\n  ],\n  \"timestamp\": 1699564800000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/behavioral/capture",
+              "host": ["{{base_url}}"],
+              "path": ["api", "behavioral", "capture"]
+            }
+          }
+        },
+        {
+          "name": "Train Behavioral Model",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/behavioral/train-model",
+              "host": ["{{base_url}}"],
+              "path": ["api", "behavioral", "train-model"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+,
+    {
+      "name": "2. Threat Prediction",
+      "item": [
+        {
+          "name": "Get Threat Predictions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/threats/predictions?timeRange=48h&confidenceMin=70",
+              "host": ["{{base_url}}"],
+              "path": ["api", "threats", "predictions"],
+              "query": [
+                {
+                  "key": "timeRange",
+                  "value": "48h"
+                },
+                {
+                  "key": "confidenceMin",
+                  "value": "70"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Threat Prediction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"predictionId\": \"pred_67890\",\n  \"outcome\": \"confirmed\",\n  \"notes\": \"Brute force attack detected and blocked\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/threats/verify-prediction",
+              "host": ["{{base_url}}"],
+              "path": ["api", "threats", "verify-prediction"]
+            }
+          }
+        },
+        {
+          "name": "Get Threat Indicators",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/threats/indicators/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "threats", "indicators", "{{user_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Contextual Intelligence",
+      "item": [
+        {
+          "name": "Evaluate Context",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"deviceInfo\": {\n    \"deviceId\": \"device_abc123\",\n    \"osType\": \"macOS\",\n    \"osVersion\": \"14.1\",\n    \"browser\": \"Chrome\",\n    \"browserVersion\": \"119.0\"\n  },\n  \"networkInfo\": {\n    \"ipAddress\": \"192.168.1.100\",\n    \"networkType\": \"campus\",\n    \"vpnActive\": true\n  },\n  \"location\": {\n    \"latitude\": 37.7749,\n    \"longitude\": -122.4194,\n    \"city\": \"San Francisco\",\n    \"country\": \"US\"\n  },\n  \"timestamp\": 1699564800000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/context/evaluate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "context", "evaluate"]
+            }
+          }
+        },
+        {
+          "name": "Get Device Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/context/device-profile/device_abc123",
+              "host": ["{{base_url}}"],
+              "path": ["api", "context", "device-profile", "device_abc123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Collaborative Security",
+      "item": [
+        {
+          "name": "Submit Security Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportedBy\": \"{{user_id}}\",\n  \"reportType\": \"suspicious_access\",\n  \"targetUserId\": \"user_67890\",\n  \"targetResource\": \"sensitive_database\",\n  \"description\": \"User accessing database at unusual hours\",\n  \"severity\": \"high\",\n  \"evidenceUrls\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/security/report",
+              "host": ["{{base_url}}"],
+              "path": ["api", "security", "report"]
+            }
+          }
+        },
+        {
+          "name": "Get Security Reports",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/security/reports?status=pending",
+              "host": ["{{base_url}}"],
+              "path": ["api", "security", "reports"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify Security Report",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"verified\",\n  \"resolution\": \"Confirmed suspicious access. Account suspended.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/security/report/report_99999/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "security", "report", "report_99999", "verify"]
+            }
+          }
+        },
+        {
+          "name": "Get User Reputation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/security/reputation/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "security", "reputation", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Security Leaderboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/security/leaderboard?limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "security", "leaderboard"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Adaptive Policy",
+      "item": [
+        {
+          "name": "Get Policy Performance",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/policy/performance",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policy", "performance"]
+            }
+          }
+        },
+        {
+          "name": "Optimize Policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"policyId\": \"policy_001\",\n  \"autoApply\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/policy/optimize",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policy", "optimize"]
+            }
+          }
+        },
+        {
+          "name": "Rollback Policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"policyId\": \"policy_001\",\n  \"version\": \"v1.2.0\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/policy/rollback",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policy", "rollback"]
+            }
+          }
+        },
+        {
+          "name": "Get Policy Evolution",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/policy/evolution/policy_001",
+              "host": ["{{base_url}}"],
+              "path": ["api", "policy", "evolution", "policy_001"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Network Visualization",
+      "item": [
+        {
+          "name": "Get Network Topology",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/network/topology",
+              "host": ["{{base_url}}"],
+              "path": ["api", "network", "topology"]
+            }
+          }
+        },
+        {
+          "name": "Get Network History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/network/history?startTime=1699564800000&endTime=1699651200000",
+              "host": ["{{base_url}}"],
+              "path": ["api", "network", "history"],
+              "query": [
+                {
+                  "key": "startTime",
+                  "value": "1699564800000"
+                },
+                {
+                  "key": "endTime",
+                  "value": "1699651200000"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Session Management",
+      "item": [
+        {
+          "name": "Get Active Sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/session/active",
+              "host": ["{{base_url}}"],
+              "path": ["api", "session", "active"]
+            }
+          }
+        },
+        {
+          "name": "Get Session Risk",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/session/risk/session_abc123",
+              "host": ["{{base_url}}"],
+              "path": ["api", "session", "risk", "session_abc123"]
+            }
+          }
+        },
+        {
+          "name": "Terminate Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"session_abc123\",\n  \"reason\": \"Suspicious activity detected\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/session/terminate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "session", "terminate"]
+            }
+          }
+        },
+        {
+          "name": "Get Session Timeline",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/session/timeline/session_abc123",
+              "host": ["{{base_url}}"],
+              "path": ["api", "session", "timeline", "session_abc123"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Security Assistant",
+      "item": [
+        {
+          "name": "Chat with Assistant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{user_id}}\",\n  \"message\": \"Why was my access request denied?\",\n  \"conversationHistory\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/assistant/chat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "assistant", "chat"]
+            }
+          }
+        },
+        {
+          "name": "Get Conversation History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/assistant/conversations/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "assistant", "conversations", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Submit Assistant Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversationId\": \"conv_abc123\",\n  \"rating\": 5,\n  \"comment\": \"Very helpful\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/assistant/feedback",
+              "host": ["{{base_url}}"],
+              "path": ["api", "assistant", "feedback"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Training Simulations",
+      "item": [
+        {
+          "name": "Get Available Simulations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/training/simulations?difficulty=beginner",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "simulations"],
+              "query": [
+                {
+                  "key": "difficulty",
+                  "value": "beginner"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Simulation Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/training/simulation/sim_001",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "simulation", "sim_001"]
+            }
+          }
+        },
+        {
+          "name": "Complete Simulation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"simulationId\": \"sim_001\",\n  \"userId\": \"{{user_id}}\",\n  \"score\": 85,\n  \"userActions\": [],\n  \"completionTime\": 245\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/training/complete",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "complete"]
+            }
+          }
+        },
+        {
+          "name": "Get Training Progress",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/training/progress/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "progress", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Training Leaderboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/training/leaderboard",
+              "host": ["{{base_url}}"],
+              "path": ["api", "training", "leaderboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Blockchain Audit",
+      "item": [
+        {
+          "name": "Verify Audit Integrity",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/blockchain/verify/audit_12345",
+              "host": ["{{base_url}}"],
+              "path": ["api", "blockchain", "verify", "audit_12345"]
+            }
+          }
+        },
+        {
+          "name": "Browse Blockchain Explorer",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/blockchain/explorer?eventType=access_grant",
+              "host": ["{{base_url}}"],
+              "path": ["api", "blockchain", "explorer"],
+              "query": [
+                {
+                  "key": "eventType",
+                  "value": "access_grant"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

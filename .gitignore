@@ -1,13 +1,16 @@
-# Environment variables
+# Environment variables - NEVER COMMIT THESE
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+backend/.env
+frontend/.env
 
-# Firebase credentials
+# Firebase credentials - NEVER COMMIT THESE
 firebase-credentials.json
 **/firebase-credentials.json
+backend/firebase-credentials.json
 
 # Python
 __pycache__/
@@ -51,3 +54,11 @@ logs/
 .cache/
 .temp/
 tmp/
+
+# ML Models (too large for git)
+backend/ml_models/*.pkl
+backend/ml_models/*.h5
+backend/ml_models/*.pt
+
+# GeoIP databases (too large for git)
+backend/geoip2/*.mmdb

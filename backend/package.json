@@ -1,0 +1,30 @@
+{
+  "name": "zero-trust-ai-blockchain",
+  "version": "1.0.0",
+  "description": "Blockchain infrastructure for Zero Trust AI Innovations",
+  "main": "truffle-config.js",
+  "scripts": {
+    "compile": "truffle compile",
+    "migrate": "truffle migrate --network development",
+    "migrate:reset": "truffle migrate --reset --network development",
+    "test": "truffle test",
+    "ganache": "ganache --port 8545 --networkId 1337 --deterministic",
+    "console": "truffle console --network development"
+  },
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "smart-contracts",
+    "zero-trust",
+    "audit-trail"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "ganache": "^7.9.1",
+    "truffle": "^5.11.5"
+  },
+  "dependencies": {
+    "web3": "^4.3.0"
+  }
+}

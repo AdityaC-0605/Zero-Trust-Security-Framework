@@ -1,0 +1,390 @@
+# Zero Trust AI Innovations - Monitoring and Alerting Configuration
+
+################################################################################
+# Prometheus Metrics Configuration
+################################################################################
+prometheus:
+  enabled: true
+  port: 9090
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  
+  # Metrics to collect
+  metrics:
+    - name: behavioral_risk_score
+      type: gauge
+      description: "Current behavioral risk score for users"
+      labels: ["user_id", "session_id"]
+    
+    - name: threat_prediction_accuracy
+      type: gauge
+      description: "Threat prediction model accuracy"
+      labels: ["model_version"]
+    
+    - name: ml_inference_duration_seconds
+      type: histogram
+      description: "ML model inference duration"
+      labels: ["model_type"]
+      buckets: [0.1, 0.5, 1.0, 2.0, 3.0, 5.0]
+    
+    - name: api_request_duration_seconds
+      type: histogram
+      description: "API request duration"
+      labels: ["endpoint", "method", "status"]
+      buckets: [0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0]
+    
+    - name: websocket_connections_total
+      type: gauge
+      description: "Total active WebSocket connections"
+    
+    - name: blockchain_sync_delay_seconds
+      type: gauge
+      description: "Blockchain sync delay"
+    
+    - name: redis_memory_usage_bytes
+      type: gauge
+      description: "Redis memory usage"
+    
+    - name: celery_task_duration_seconds
+      type: histogram
+      description: "Celery task execution duration"
+      labels: ["task_name", "status"]
+      buckets: [1, 5, 10, 30, 60, 300, 600]
+
+################################################################################
+# Alerting Rules
+################################################################################
+alerting:
+  enabled: true
+  
+  # Alert channels
+  channels:
+    - name: email
+      type: email
+      config:
+        to: ["security@zerotrust.example.com", "devops@zerotrust.example.com"]
+        from: "alerts@zerotrust.example.com"
+    
+    - name: slack
+      type: slack
+      config:
+        webhook_url: "${SLACK_WEBHOOK_URL}"
+        channel: "#security-alerts"
+    
+    - name: pagerduty
+      type: pagerduty
+      config:
+        service_key: "${PAGERDUTY_SERVICE_KEY}"
+  
+  # Alert rules
+  rules:
+    # Critical Alerts
+    - name: HighRiskScoreDetected
+      severity: critical
+      condition: behavioral_risk_score > 80
+      duration: 1m
+      channels: ["email", "slack", "pagerduty"]
+      annotations:
+        summary: "High risk score detected for user {{ $labels.user_id }}"
+        description: "User {{ $labels.user_id }} has a risk score of {{ $value }}"
+        runbook: "https://docs.zerotrust.example.com/runbooks/high-risk-score"
+    
+    - name: ServiceDown
+      severity: critical
+      condition: up == 0
+      duration: 2m
+      channels: ["email", "slack", "pagerduty"]
+      annotations:
+        summary: "Service {{ $labels.job }} is down"
+        description: "Service {{ $labels.job }} has been down for more than 2 minutes"
+        runbook: "https://docs.zerotrust.example.com/runbooks/service-down"
+    
+    - name: BlockchainSyncStopped
+      severity: critical
+      condition: blockchain_sync_delay_seconds > 7200
+      duration: 10m
+      channels: ["email", "slack"]
+      annotations:
+        summary: "Blockchain sync stopped"
+        description: "Blockchain sync delayed by {{ $value }} seconds"
+        runbook: "https://docs.zerotrust.example.com/runbooks/blockchain-sync"
+    
+    # Warning Alerts
+    - name: ThreatPredictionAccuracyLow
+      severity: warning
+      condition: threat_prediction_accuracy < 0.80
+      duration: 5m
+      channels: ["email", "slack"]
+      annotations:
+        summary: "Threat prediction accuracy below 80%"
+        description: "Current accuracy: {{ $value }}"
+        runbook: "https://docs.zerotrust.example.com/runbooks/model-accuracy"
+    
+    - name: MLInferenceSlow
+      severity: warning
+      condition: ml_inference_duration_seconds > 3
+      duration: 5m
+      channels: ["slack"]
+      annotations:
+        summary: "ML model inference taking longer than 3 seconds"
+        description: "Model {{ $labels.model_type }} inference time: {{ $value }}s"
+        runbook: "https://docs.zerotrust.example.com/runbooks/ml-performance"
+    
+    - name: HighAPILatency
+      severity: warning
+      condition: api_request_duration_seconds{quantile="0.95"} > 2
+      duration: 5m
+      channels: ["slack"]
+      annotations:
+        summary: "High API latency detected"
+        description: "95th percentile latency: {{ $value }}s"
+        runbook: "https://docs.zerotrust.example.com/runbooks/api-latency"
+    
+    - name: HighMemoryUsage
+      severity: warning
+      condition: redis_memory_usage_bytes > 7516192768  # 7GB
+      duration: 5m
+      channels: ["slack"]
+      annotations:
+        summary: "Redis memory usage high"
+        description: "Current usage: {{ $value | humanize }}B"
+        runbook: "https://docs.zerotrust.example.com/runbooks/redis-memory"
+    
+    - name: CeleryTaskBacklog
+      severity: warning
+      condition: celery_queue_length > 1000
+      duration: 10m
+      channels: ["slack"]
+      annotations:
+        summary: "Celery task backlog detected"
+        description: "Queue length: {{ $value }}"
+        runbook: "https://docs.zerotrust.example.com/runbooks/celery-backlog"
+    
+    - name: WebSocketConnectionsHigh
+      severity: warning
+      condition: websocket_connections_total > 800
+      duration: 5m
+      channels: ["slack"]
+      annotations:
+        summary: "High number of WebSocket connections"
+        description: "Current connections: {{ $value }}"
+        runbook: "https://docs.zerotrust.example.com/runbooks/websocket-scaling"
+
+################################################################################
+# Grafana Dashboards
+################################################################################
+grafana:
+  enabled: true
+  port: 3000
+  
+  dashboards:
+    - name: "Zero Trust Overview"
+      uid: "zerotrust-overview"
+      panels:
+        - title: "Active Users"
+          type: "stat"
+          query: "count(behavioral_risk_score)"
+        
+        - title: "Average Risk Score"
+          type: "gauge"
+          query: "avg(behavioral_risk_score)"
+        
+        - title: "Threat Predictions (24h)"
+          type: "stat"
+          query: "count_over_time(threat_prediction_generated[24h])"
+        
+        - title: "API Request Rate"
+          type: "graph"
+          query: "rate(api_requests_total[5m])"
+        
+        - title: "ML Inference Latency"
+          type: "graph"
+          query: "histogram_quantile(0.95, ml_inference_duration_seconds)"
+    
+    - name: "Behavioral Biometrics"
+      uid: "behavioral-biometrics"
+      panels:
+        - title: "Risk Score Distribution"
+          type: "heatmap"
+          query: "behavioral_risk_score"
+        
+        - title: "High Risk Sessions"
+          type: "table"
+          query: "behavioral_risk_score > 60"
+        
+        - title: "Model Accuracy"
+          type: "gauge"
+          query: "behavioral_model_accuracy"
+        
+        - title: "Anomalies Detected"
+          type: "graph"
+          query: "rate(behavioral_anomalies_total[5m])"
+    
+    - name: "Threat Prediction"
+      uid: "threat-prediction"
+      panels:
+        - title: "Prediction Accuracy"
+          type: "gauge"
+          query: "threat_prediction_accuracy"
+        
+        - title: "Predictions by Type"
+          type: "pie"
+          query: "sum by (prediction_type) (threat_predictions_total)"
+        
+        - title: "False Positive Rate"
+          type: "graph"
+          query: "threat_prediction_false_positive_rate"
+        
+        - title: "Recent Predictions"
+          type: "table"
+          query: "threat_predictions_recent"
+    
+    - name: "System Performance"
+      uid: "system-performance"
+      panels:
+        - title: "CPU Usage"
+          type: "graph"
+          query: "rate(process_cpu_seconds_total[5m])"
+        
+        - title: "Memory Usage"
+          type: "graph"
+          query: "process_resident_memory_bytes"
+        
+        - title: "API Latency (p95)"
+          type: "graph"
+          query: "histogram_quantile(0.95, api_request_duration_seconds)"
+        
+        - title: "Error Rate"
+          type: "graph"
+          query: "rate(api_errors_total[5m])"
+
+################################################################################
+# Health Checks
+################################################################################
+health_checks:
+  enabled: true
+  interval: 30s
+  timeout: 10s
+  
+  checks:
+    - name: api_server
+      type: http
+      url: "http://localhost:5000/health"
+      expected_status: 200
+    
+    - name: ml_services
+      type: http
+      url: "http://localhost:8000/health"
+      expected_status: 200
+    
+    - name: redis
+      type: tcp
+      host: "localhost"
+      port: 6379
+    
+    - name: rabbitmq
+      type: tcp
+      host: "localhost"
+      port: 5672
+    
+    - name: blockchain
+      type: http
+      url: "http://localhost:8545"
+      method: POST
+      body: '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+      expected_status: 200
+    
+    - name: ipfs
+      type: http
+      url: "http://localhost:5001/api/v0/version"
+      expected_status: 200
+
+################################################################################
+# Log Aggregation
+################################################################################
+logging:
+  enabled: true
+  
+  # Log sources
+  sources:
+    - name: backend_api
+      path: "/var/log/zerotrust/backend.log"
+      format: "json"
+    
+    - name: ml_services
+      path: "/var/log/zerotrust/ml.log"
+      format: "json"
+    
+    - name: celery_worker
+      path: "/var/log/celery/worker.log"
+      format: "text"
+    
+    - name: nginx_access
+      path: "/var/log/nginx/access.log"
+      format: "nginx"
+    
+    - name: nginx_error
+      path: "/var/log/nginx/error.log"
+      format: "nginx"
+  
+  # Log filters
+  filters:
+    - name: errors_only
+      condition: "level >= ERROR"
+    
+    - name: security_events
+      condition: "category == 'security'"
+    
+    - name: high_risk_scores
+      condition: "risk_score > 80"
+  
+  # Log retention
+  retention:
+    default: 30d
+    security_events: 1y
+    audit_logs: 7y
+
+################################################################################
+# Performance Monitoring
+################################################################################
+performance:
+  enabled: true
+  
+  # APM (Application Performance Monitoring)
+  apm:
+    enabled: true
+    service_name: "zerotrust-api"
+    environment: "production"
+    
+    # Transaction sampling
+    transaction_sample_rate: 0.1
+    
+    # Slow transaction threshold
+    slow_transaction_threshold: 2.0
+  
+  # Profiling
+  profiling:
+    enabled: false  # Enable only for debugging
+    sample_rate: 0.01
+
+################################################################################
+# Backup Monitoring
+################################################################################
+backup_monitoring:
+  enabled: true
+  
+  checks:
+    - name: firestore_backup
+      schedule: "0 2 * * *"
+      max_age: 25h
+      alert_on_failure: true
+    
+    - name: ml_models_backup
+      schedule: "0 3 * * *"
+      max_age: 25h
+      alert_on_failure: true
+    
+    - name: blockchain_backup
+      schedule: "0 4 * * 0"
+      max_age: 8d
+      alert_on_failure: true

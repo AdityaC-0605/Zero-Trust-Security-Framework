@@ -388,3 +388,17 @@ This is an automated security alert from the Zero Trust Security Framework.
 
 # Singleton instance
 audit_logger = AuditLogger()
+
+# Convenience function for backward compatibility
+def log_audit_event(user_id, event_type, action, resource, result, details=None, ip_address=None, severity='low'):
+    """Convenience function to log audit events"""
+    return audit_logger.log_event(
+        event_type=event_type,
+        user_id=user_id,
+        action=action,
+        resource=resource,
+        result=result,
+        details=details,
+        ip_address=ip_address,
+        severity=severity
+    )

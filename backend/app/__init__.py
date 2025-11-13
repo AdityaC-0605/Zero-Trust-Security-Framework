@@ -19,6 +19,28 @@ def create_app():
     # Maximum request payload size (1 MB)
     app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
     
+    # Initialize Redis for caching and session management
+    try:
+        from redis_config import init_redis
+        redis_client = init_redis()
+        app.config['REDIS_CLIENT'] = redis_client
+        print("Redis initialized successfully")
+    except Exception as e:
+        print(f"Redis initialization failed: {e}")
+        print("Application will continue without Redis caching")
+        app.config['REDIS_CLIENT'] = None
+    
+    # Initialize WebSocket server
+    try:
+        from websocket_config import init_socketio
+        socketio = init_socketio(app)
+        app.config['SOCKETIO'] = socketio
+        print("WebSocket server initialized successfully")
+    except Exception as e:
+        print(f"WebSocket initialization failed: {e}")
+        print("Application will continue without WebSocket support")
+        app.config['SOCKETIO'] = None
+    
     # CORS configuration - specific origins only, no wildcards
     cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
     # Strip whitespace and ensure no wildcards
@@ -199,13 +221,20 @@ def create_app():
         }), 500
     
     # Register blueprints
-    from app.routes import auth_routes, user_routes, access_routes, admin_routes, policy_routes, notification_routes
+    from app.routes import auth_routes, user_routes, access_routes, admin_routes, policy_routes, notification_routes, behavioral_routes, threat_routes, context_routes, assistant_routes, training_routes, session_routes, reports_routes
     app.register_blueprint(auth_routes.bp)
     app.register_blueprint(user_routes.bp)
     app.register_blueprint(access_routes.bp)
     app.register_blueprint(admin_routes.bp)
     app.register_blueprint(policy_routes.bp)
     app.register_blueprint(notification_routes.bp)
+    app.register_blueprint(behavioral_routes.behavioral_bp)
+    app.register_blueprint(threat_routes.threat_bp)
+    app.register_blueprint(context_routes.context_bp)
+    app.register_blueprint(assistant_routes.assistant_bp)
+    app.register_blueprint(training_routes.training_bp)
+    app.register_blueprint(session_routes.session_bp)
+    app.register_blueprint(reports_routes.reports_bp)
     
     # Health check endpoint
     @app.route('/health', methods=['GET'])

@@ -1,0 +1,476 @@
+# Implementation Plan
+
+- [x] 1. Design System Foundation Setup
+  - [x] 1.1 Install required dependencies (framer-motion, react-hot-toast, lucide-react, clsx, @headlessui/react)
+    - Run npm install commands for all animation and UI libraries
+    - Verify installations in package.json
+    - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5_
+  - [x] 1.2 Extend Tailwind configuration with design tokens
+    - Add color palette (primary, secondary, accent, status, neutral) to tailwind.config.js
+    - Configure typography system with font families, sizes, and weights
+    - Add spacing scale, border radius, and shadow definitions
+    - Configure responsive breakpoints (mobile, tablet, desktop, wide)
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - [x] 1.3 Create CSS custom properties and animation keyframes
+    - Create src/styles/design-tokens.css with CSS variables for gradients
+    - Create src/styles/animations.css with keyframe definitions (shimmer, shake, pulse-glow, draw-checkmark, slide-in-right, count-up)
+    - Create src/styles/utilities.css with custom utility classes
+    - Import all style files in src/index.css
+    - _Requirements: 1.1, 9.1, 9.2, 9.3, 9.4, 9.5_
+  - [x] 1.4 Create animation utility constants and helpers
+    - Create src/utils/animations.js with duration constants and easing functions
+    - Define Framer Motion variants for pages, modals, and stagger animations
+    - Create src/utils/classNames.js with clsx wrapper utilities
+    - _Requirements: 9.1, 10.1, 10.2, 10.3_
+  - [x] 1.5 Create custom hooks for animations and responsive design
+    - Create src/hooks/useReducedMotion.js to detect prefers-reduced-motion
+    - Create src/hooks/useMediaQuery.js for responsive breakpoint detection
+    - Create src/hooks/useAnimation.js for reusable animation logic
+    - _Requirements: 12.5, 11.1, 11.2, 11.3_
+
+- [x] 2. Base UI Component Library
+  - [x] 2.1 Create Button component with variants and animations
+    - Implement Button.jsx with variants (primary, secondary, ghost, danger)
+    - Add size options (sm, md, lg) with appropriate padding and text sizes
+    - Implement hover scale (1.05) and click scale (0.95) animations using Framer Motion
+    - Add loading state with spinner and disabled interaction
+    - Add icon support with proper spacing
+    - _Requirements: 2.3, 9.1, 19.1_
+  - [x] 2.2 Create Card component with hover effects
+    - Implement Card.jsx with base styling (bg-neutral-card, rounded-lg, border)
+    - Add hoverable prop that lifts card by 4px and increases shadow on hover
+    - Add gradient prop for gradient border variant
+    - Implement smooth transitions (200ms duration)
+    - _Requirements: 4.4, 19.2_
+  - [x] 2.3 Create Input component with floating labels
+    - Implement Input.jsx with floating label animation on focus
+    - Add icon support with left padding adjustment
+    - Implement focus glow effect with ring-2 ring-primary/50
+    - Add error state with shake animation and red border
+    - Add success state with checkmark icon and green border
+    - Implement validation message display below input
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 19.4_
+  - [x] 2.4 Create Badge component with status variants
+    - Implement Badge.jsx with status variants (granted, denied, pending, info)
+    - Add color coding (green, red, yellow, blue) with background and border
+    - Include status icons (CheckCircle, XCircle, Clock, Info)
+    - Add removable variant with X button and scale animation
+    - Implement scale and fade-in animation on mount
+    - _Requirements: 15.1, 19.3_
+  - [x] 2.5 Create Modal component with animations and accessibility
+    - Implement Modal.jsx using Headless UI Dialog for accessibility
+    - Add backdrop blur effect with fade animation (200ms)
+    - Implement modal scale animation from 0.9 to 1.0 on open
+    - Add close on outside click and escape key
+    - Implement focus trap within modal
+    - Add size variants (sm, md, lg, xl)
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 12.3, 19.5_
+
+- [x] 3. Loading States and Feedback Components
+  - [x] 3.1 Create Skeleton component with shimmer effect
+    - Implement Skeleton.jsx with variants (text, title, avatar, card)
+    - Add shimmer animation using gradient overlay moving left to right
+    - Create reusable skeleton layouts for common patterns (dashboard, table, form)
+    - _Requirements: 8.1, 8.5_
+  - [x] 3.2 Create ProgressBar component with smooth fill animation
+    - Implement ProgressBar.jsx with value and max props
+    - Add smooth fill animation from 0 to percentage over 500ms
+    - Implement color variants (primary, success, warning, error) with gradients
+    - Add optional label showing percentage
+    - _Requirements: 8.3, 15.2_
+  - [x] 3.3 Create ConfidenceScore display component
+    - Implement ConfidenceScore.jsx combining score number and progress bar
+    - Add count-up animation for score number
+    - Color-code based on thresholds (>=90 green, >=50 yellow, <50 red)
+    - Implement scale animation on mount
+    - _Requirements: 15.2_
+  - [x] 3.4 Integrate react-hot-toast for notifications
+    - Set up Toaster component in App.jsx with top-right positioning
+    - Configure toast styling (dark background, rounded corners, padding)
+    - Create showToast utility with methods (success, error, warning, info)
+    - Implement slide-in animation from top-right
+    - Add auto-dismiss after 5 seconds with pause on hover
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+  - [x] 3.5 Create LoadingButton component
+    - Implement loading state for Button with rotating spinner
+    - Expand button width by 20px during loading
+    - Disable button interaction while loading
+    - _Requirements: 8.2_
+
+- [x] 4. Enhanced Authentication Pages
+  - [x] 4.1 Redesign Login page with split-screen layout
+    - Create split-screen layout (left: branding, right: form)
+    - Implement animated gradient background on left side
+    - Create FloatingSecurityIcons component with animated icons (shield, lock, key, fingerprint)
+    - Add glass-morphism effect to form card (backdrop-blur, semi-transparent)
+    - Implement fade-in animation on page load
+    - _Requirements: 2.1, 2.5_
+  - [x] 4.2 Enhance Login form with interactive elements
+    - Replace standard inputs with enhanced Input components
+    - Add icons to email (mail icon) and password (lock icon) fields
+    - Implement password visibility toggle with eye icon
+    - Add animated focus states with blue glow
+    - Show loading spinner on submit button during authentication
+    - Display toast notifications for success/error
+    - _Requirements: 2.2, 2.3, 2.4, 2.5, 3.1, 3.3_
+  - [x] 4.3 Enhance Signup page with step indicator
+    - Add progress bar showing registration steps
+    - Create role selection cards with hover flip animation
+    - Implement real-time password strength indicator with color coding
+    - Add character counter for text inputs
+    - Show success animation (confetti or checkmark) on completion
+    - _Requirements: 2.1, 2.2, 2.3, 3.5_
+  - [x] 4.4 Enhance MFA verification page
+    - Create 6-digit code input with auto-focus and auto-advance
+    - Add animated transitions between input fields
+    - Implement shake animation on incorrect code
+    - Show success checkmark animation on verification
+    - _Requirements: 3.2, 9.5_
+
+- [x] 5. Dashboard Layout Enhancements
+  - [x] 5.1 Create collapsible Sidebar with animations
+    - Implement Sidebar.jsx with collapse/expand animation (250ms slide)
+    - Add active page indicator with border and highlight
+    - Implement icon-only collapsed state with tooltips on hover
+    - Add smooth scroll shadow effect
+    - Create mobile hamburger menu with backdrop
+    - _Requirements: 4.1, 4.2, 11.1_
+  - [x] 5.2 Create responsive Navbar component
+    - Implement Navbar.jsx with logo, search, notifications, and user menu
+    - Add notification bell with badge showing unread count
+    - Create user avatar dropdown with smooth animation
+    - Add ThemeToggle component for dark mode
+    - Implement smooth scroll behavior
+    - _Requirements: 4.1, 13.1_
+  - [x] 5.3 Create StatsCard component with count-up animation
+    - Implement StatsCard.jsx with animated number count-up over 1000ms
+    - Add icon background with subtle pulse animation
+    - Implement gradient borders and hover lift effect
+    - Add trend indicators with up/down arrows and percentage
+    - Include background glow effect with color matching stat type
+    - _Requirements: 4.3, 4.4, 4.5_
+  - [x] 5.4 Create Breadcrumb navigation component
+    - Implement Breadcrumb.jsx with home icon and clickable segments
+    - Add separator icons between segments
+    - Highlight current page
+    - _Requirements: 4.5_
+  - [x] 5.5 Create BottomNav for mobile devices
+    - Implement BottomNav.jsx with main action buttons
+    - Show only on mobile viewport (< 640px)
+    - Add slide-up animation on mount
+    - Implement active state highlighting
+    - Ensure minimum 44x44px touch targets
+    - _Requirements: 11.4, 11.5_
+
+- [x] 6. Enhanced Table Component
+  - [x] 6.1 Create sortable Table component
+    - Implement Table.jsx with column configuration support
+    - Add sortable column headers with animated sort icons
+    - Implement sort state management (ascending/descending)
+    - Add alternating row colors for readability
+    - Implement row hover highlight with smooth transition
+    - _Requirements: 6.1, 6.2, 6.3_
+  - [x] 6.2 Add expandable rows to Table
+    - Implement expandable row functionality with slide-down animation
+    - Add chevron icon that rotates on expand/collapse
+    - Create expanded content area with custom rendering
+    - Animate height transition smoothly
+    - _Requirements: 6.4_
+  - [x] 6.3 Add pagination to Table
+    - Implement pagination controls with page numbers
+    - Add smooth fade transition when changing pages
+    - Include prev/next buttons with disabled states
+    - Show current page and total pages
+    - _Requirements: 6.5_
+  - [x] 6.4 Create filter panel for Table
+    - Implement filter panel that slides in from side
+    - Add filter chips showing active filters
+    - Implement remove filter animation
+    - Add clear all filters button
+    - _Requirements: 15.5_
+
+- [x] 7. Chart and Data Visualization Components
+  - [x] 7.1 Create AnimatedLineChart component
+    - Implement AnimatedLineChart.jsx using Recharts
+    - Add gradient fill under line
+    - Implement line draw animation over 800ms
+    - Configure tooltip with dark theme styling
+    - Add responsive container
+    - _Requirements: 5.1, 5.2, 5.4_
+  - [x] 7.2 Create AnimatedBarChart component
+    - Implement AnimatedBarChart.jsx with staggered bar animations
+    - Add height animation from 0 to value over 500ms
+    - Configure rounded corners on bars
+    - Implement hover effects on bars
+    - _Requirements: 5.3_
+  - [x] 7.3 Create DonutChart component
+    - Implement DonutChart.jsx with arc draw animation
+    - Add hover brightness effect on segments
+    - Implement legend with color indicators
+    - Animate arc drawing over 800ms
+    - _Requirements: 5.5_
+  - [x] 7.4 Create interactive chart legends
+    - Implement clickable legends that toggle data series visibility
+    - Add smooth fade animation when toggling series
+    - Highlight legend item on hover
+    - _Requirements: 18.2_
+
+- [x] 8. Enhanced Access Request Form
+  - [x] 8.1 Create multi-step form with progress indicator
+    - Implement multi-step form wrapper with step state management
+    - Create animated progress bar showing current step
+    - Add step number indicators with checkmarks for completed steps
+    - Implement smooth transitions between steps (fade and slide)
+    - _Requirements: 14.1_
+  - [x] 8.2 Create ResourceSelection step with card grid
+    - Implement resource cards with icons and descriptions
+    - Add flip animation on hover (rotateY effect)
+    - Implement card selection state with border highlight
+    - Create grid layout responsive to screen size
+    - _Requirements: 14.2_
+  - [x] 8.3 Create IntentDescription step with character counter
+    - Implement textarea with floating label
+    - Add real-time character counter that updates as user types
+    - Show validation feedback (minimum 20 characters, 5 words)
+    - Implement word count display
+    - _Requirements: 14.3_
+  - [x] 8.4 Create DurationSelector with visual timeline
+    - Implement duration selector with visual timeline representation
+    - Add urgency level selector with color-coded badges
+    - Implement smooth selection animations
+    - _Requirements: 14.4_
+  - [x] 8.5 Create confirmation modal for form submission
+    - Implement confirmation modal with slide-up animation
+    - Display form summary before submission
+    - Add loading state during submission
+    - Show success animation on completion
+    - _Requirements: 14.5_
+
+- [x] 9. Enhanced Request History View
+  - [x] 9.1 Enhance RequestHistory with animated table
+    - Replace existing table with enhanced Table component
+    - Add status badges with icons and colors
+    - Implement confidence score progress bars
+    - Add staggered row entrance animations
+    - _Requirements: 15.1, 15.2, 15.3_
+  - [x] 9.2 Add expandable request details
+    - Implement expandable rows showing full request details
+    - Add confidence breakdown visualization
+    - Show policy information and decision rationale
+    - Animate expansion with smooth slide-down
+    - _Requirements: 15.4_
+  - [x] 9.3 Create filter and search interface
+    - Implement filter panel with status, date range, and resource filters
+    - Add search bar with magnifying glass icon
+    - Show active filter chips with remove buttons
+    - Implement smooth filter application with fade transition
+    - _Requirements: 15.5_
+
+- [x] 10. Admin Dashboard Enhancements
+  - [x] 10.1 Enhance Analytics dashboard with interactive charts
+    - Implement multiple chart types (line, bar, pie, area) for different metrics
+    - Add date range selector with calendar UI
+    - Create metric comparison cards with trend indicators
+    - Implement animated transitions between time ranges
+    - _Requirements: 18.1, 18.3, 18.4, 18.5_
+  - [x] 10.2 Enhance UserManagement with search and filters
+    - Add search bar with real-time filtering
+    - Implement role filter dropdown
+    - Create user cards with profile pictures and role badges
+    - Add quick action buttons (edit, delete, suspend) with hover effects
+    - Implement bulk selection with checkboxes
+    - _Requirements: 6.1, 6.2, 6.3_
+  - [x] 10.3 Enhance AuditLogs viewer with timeline view
+    - Implement timeline view with connecting lines
+    - Add event type icons (login, access request, policy change)
+    - Implement severity color coding (info, warning, error, critical)
+    - Create expandable log entries with slide-down animation
+    - Add export button with dropdown options
+    - _Requirements: 6.1, 6.2, 6.3, 6.4_
+
+- [x] 11. Dark Mode Implementation
+  - [x] 11.1 Create ThemeContext and ThemeProvider
+    - Implement ThemeContext.jsx with theme state management
+    - Add localStorage persistence for theme preference
+    - Detect system preference on initial load
+    - Implement toggleTheme function
+    - _Requirements: 13.1, 13.3, 13.4_
+  - [x] 11.2 Create ThemeToggle component
+    - Implement ThemeToggle.jsx with sun/moon icon animation
+    - Add smooth rotation transition between icons (200ms)
+    - Place toggle in Navbar
+    - _Requirements: 13.1, 13.2_
+  - [x] 11.3 Update Tailwind config for dark mode
+    - Enable dark mode with 'class' strategy
+    - Define dark mode color variants for all design tokens
+    - Adjust shadow opacity for dark mode
+    - _Requirements: 13.2, 13.5_
+  - [x] 11.4 Apply dark mode classes throughout components
+    - Add dark: variants to all components
+    - Test color contrast in dark mode
+    - Ensure all text is readable
+    - Verify all interactive elements are visible
+    - _Requirements: 13.2, 13.5_
+
+- [x] 12. Accessibility Implementation
+  - [x] 12.1 Implement keyboard navigation support
+    - Add tab index to all interactive elements
+    - Implement skip-to-content link
+    - Add keyboard event handlers (Enter, Space, Escape, Arrow keys)
+    - Test tab order follows visual flow
+    - _Requirements: 12.2, 12.3_
+  - [x] 12.2 Add ARIA labels and roles
+    - Add aria-label to all icon buttons
+    - Implement proper role attributes for custom components
+    - Add aria-expanded for expandable elements
+    - Include aria-live regions for dynamic content
+    - _Requirements: 12.4_
+  - [x] 12.3 Implement focus indicators
+    - Add visible focus rings (2px outline) to all interactive elements
+    - Use focus-visible for keyboard-only focus indicators
+    - Ensure focus indicators have sufficient contrast
+    - Test focus indicators in both light and dark modes
+    - _Requirements: 12.2_
+  - [x] 12.4 Add reduced motion support
+    - Implement useReducedMotion hook
+    - Conditionally disable animations when prefers-reduced-motion is enabled
+    - Provide instant transitions as fallback
+    - Test with reduced motion system setting
+    - _Requirements: 12.5_
+  - [x] 12.5 Verify color contrast ratios
+    - Test all text colors against backgrounds for 4.5:1 minimum ratio
+    - Use contrast checker tool for verification
+    - Adjust colors that don't meet WCAG AA standards
+    - _Requirements: 12.1_
+
+- [-] 13. Responsive Design Implementation
+  - [x] 13.1 Implement responsive grid layouts
+    - Update dashboard to use responsive grid (1 col mobile, 2 col tablet, 3+ col desktop)
+    - Make stats cards stack vertically on mobile
+    - Adjust chart sizes for different viewports
+    - _Requirements: 11.1, 11.2, 11.3_
+  - [x] 13.2 Implement responsive navigation
+    - Show hamburger menu on mobile (< 1024px)
+    - Collapse sidebar to icons on tablet
+    - Show full sidebar on desktop
+    - Add bottom navigation on mobile
+    - _Requirements: 11.1, 11.5_
+  - [x] 13.3 Optimize touch targets for mobile
+    - Ensure all buttons are minimum 44x44px on mobile
+    - Increase spacing between interactive elements
+    - Make form inputs larger on mobile
+    - _Requirements: 11.4_
+  - [x] 13.4 Test on multiple devices and screen sizes
+    - Test on mobile (320px, 375px, 414px widths)
+    - Test on tablet (768px, 1024px widths)
+    - Test on desktop (1280px, 1920px widths)
+    - Verify all features work on touch devices
+    - _Requirements: 11.1, 11.2, 11.3_
+
+- [x] 14. Performance Optimization
+  - [x] 14.1 Implement code splitting for routes
+    - Use React.lazy for dashboard components
+    - Use React.lazy for admin components
+    - Wrap lazy components in Suspense with loading fallback
+    - _Requirements: 16.4_
+  - [x] 14.2 Optimize animation performance
+    - Use transform and opacity for all animations
+    - Add will-change to frequently animated elements
+    - Remove will-change after animation completes
+    - Avoid animating layout properties (width, height, margin, padding)
+    - _Requirements: 16.1, 16.2, 16.3, 16.5_
+  - [x] 14.3 Implement lazy loading for images
+    - Add loading="lazy" to all images
+    - Implement fade-in animation when images load
+    - Show skeleton while images are loading
+    - _Requirements: 16.4_
+  - [x] 14.4 Optimize bundle size
+    - Analyze bundle with source-map-explorer
+    - Tree-shake unused code
+    - Import only needed components from libraries
+    - _Requirements: 16.4_
+
+- [x] 15. Icon System Implementation
+  - [x] 15.1 Set up Lucide React icon library
+    - Import commonly used icons (Shield, Lock, Key, Fingerprint, Check, X, etc.)
+    - Create icon wrapper component for consistent sizing
+    - Document available icons for team reference
+    - _Requirements: 17.1, 17.2_
+  - [x] 15.2 Create custom security-themed icons
+    - Design or source shield with checkmark icon
+    - Design or source fingerprint scanner icon
+    - Design or source lock with keyhole icon
+    - Implement as SVG components
+    - _Requirements: 17.2_
+  - [x] 15.3 Create empty state illustrations
+    - Design or source "no data" illustration
+    - Design or source "no results" illustration
+    - Create EmptyState component with illustration and message
+    - _Requirements: 17.3_
+  - [x] 15.4 Create success and error illustrations
+    - Design or source success confirmation illustration
+    - Design or source 404 error illustration
+    - Design or source 500 error illustration
+    - Implement with friendly messaging
+    - _Requirements: 17.4, 17.5_
+
+- [x] 16. Integration and Testing
+  - [x] 16.1 Integrate enhanced components into existing pages
+    - Replace existing Login component with enhanced version
+    - Replace existing Dashboard components with enhanced versions
+    - Replace existing RequestForm with multi-step version
+    - Replace existing RequestHistory with enhanced table
+    - Update all admin pages with new components
+    - _Requirements: All requirements_
+  - [x] 16.2 Test animations across browsers
+    - Test in Chrome, Firefox, Safari, Edge
+    - Verify animations run at 60fps
+    - Check for animation jank or stuttering
+    - Test on different hardware (low-end and high-end)
+    - _Requirements: 16.5_
+  - [x] 16.3 Test responsive design on real devices
+    - Test on actual mobile devices (iOS and Android)
+    - Test on tablets
+    - Verify touch interactions work correctly
+    - Check for layout issues at various screen sizes
+    - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
+  - [x] 16.4 Conduct accessibility audit
+    - Run automated accessibility tests with axe or Lighthouse
+    - Test keyboard navigation throughout application
+    - Test with screen reader (NVDA or VoiceOver)
+    - Verify color contrast meets WCAG AA standards
+    - Test with reduced motion enabled
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - [x] 16.5 Write component tests
+    - Write unit tests for Button component (variants, animations, loading state)
+    - Write unit tests for Input component (validation, floating labels)
+    - Write unit tests for Modal component (open/close, accessibility)
+    - Write unit tests for Table component (sorting, filtering, expansion)
+    - Write accessibility tests using jest-axe
+    - _Requirements: All requirements_
+
+- [x] 17. Documentation and Handoff
+  - [x] 17.1 Document design system
+    - Create design system documentation with color palette
+    - Document typography scale and usage
+    - Document spacing and layout guidelines
+    - Document component variants and props
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - [x] 17.2 Create component usage examples
+    - Add JSDoc comments to all components
+    - Create example usage for each component
+    - Document accessibility considerations
+    - Document animation specifications
+    - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5_
+  - [x] 17.3 Create animation guidelines
+    - Document animation duration standards
+    - Document easing functions and when to use them
+    - Document performance best practices
+    - Document reduced motion considerations
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 16.1, 16.2, 16.3_
+  - [x] 17.4 Update README with new features
+    - Document new dependencies and their purposes
+    - Add screenshots of enhanced UI
+    - Document dark mode toggle
+    - Document accessibility features
+    - _Requirements: All requirements_

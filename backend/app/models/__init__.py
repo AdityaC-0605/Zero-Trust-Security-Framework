@@ -19,6 +19,9 @@ from .notification import (
     delete_expired_notifications,
     get_unread_count
 )
+from .behavioral_profile import BehavioralProfile
+from .behavioral_session import BehavioralSession
+from .threat_prediction import ThreatPrediction, ThreatIndicator
 
 __all__ = [
     'User', 
@@ -43,5 +46,9 @@ __all__ = [
     'mark_notification_as_read',
     'mark_all_notifications_as_read',
     'delete_expired_notifications',
-    'get_unread_count'
+    'get_unread_count',
+    'BehavioralProfile',
+    'BehavioralSession',
+    'ThreatPrediction',
+    'ThreatIndicator'
 ]

@@ -205,14 +205,22 @@ def submit_access_request():
         # Update access request with evaluation result
         access_request.set_evaluation_result(evaluation_result)
         
-        # Update the request in Firestore
-        update_access_request(db, access_request.request_id, {
+        # Prepare update data
+        update_data = {
             'decision': access_request.decision,
             'confidenceScore': access_request.confidence_score,
             'confidenceBreakdown': access_request.confidence_breakdown,
             'policiesApplied': access_request.policies_applied,
             'denialReason': access_request.denial_reason
-        })
+        }
+        
+        # Add contextual breakdown if available
+        if 'contextualBreakdown' in evaluation_result:
+            update_data['contextualBreakdown'] = evaluation_result['contextualBreakdown']
+            update_data['contextualScore'] = evaluation_result.get('contextualScore', 0)
+        
+        # Update the request in Firestore
+        update_access_request(db, access_request.request_id, update_data)
         
         # Create notification for user
         _create_access_request_notification(
@@ -231,9 +239,15 @@ def submit_access_request():
             'confidenceScore': access_request.confidence_score,
             'message': evaluation_result.get('message', 'Request processed successfully'),
             'mfaRequired': evaluation_result.get('mfaRequired', False),
+            'stepUpAuthRequired': evaluation_result.get('stepUpAuthRequired', False),
             'confidenceBreakdown': access_request.confidence_breakdown,
             'policiesApplied': access_request.policies_applied
         }
+        
+        # Add contextual data if available
+        if 'contextualBreakdown' in evaluation_result:
+            response_data['contextualBreakdown'] = evaluation_result['contextualBreakdown']
+            response_data['contextualScore'] = evaluation_result.get('contextualScore', 0)
         
         # Add expiration time if granted
         if access_request.expires_at:

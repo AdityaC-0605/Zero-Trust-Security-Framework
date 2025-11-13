@@ -56,3 +56,6 @@ def verify_firebase_token(id_token):
     except Exception as e:
         print(f"Error verifying token: {str(e)}")
         return None
+
+# Initialize Firebase on module import
+db = initialize_firebase()
