@@ -32,12 +32,29 @@ class AuthService:
         # Initialize encryption key for MFA secrets
         # In production, this should be stored securely (e.g., in environment variable)
         encryption_key = os.getenv('ENCRYPTION_KEY')
+        
         if not encryption_key:
             # Generate a key for development (should be persistent in production)
-            encryption_key = Fernet.generate_key().decode()
+            encryption_key_bytes = Fernet.generate_key()
             print(f"Warning: Using generated encryption key. Set ENCRYPTION_KEY in production.")
+        else:
+            # Validate and convert the encryption key
+            try:
+                # Convert string to bytes if needed
+                if isinstance(encryption_key, str):
+                    encryption_key_bytes = encryption_key.encode()
+                else:
+                    encryption_key_bytes = encryption_key
+                
+                # Validate the key by trying to create a Fernet instance
+                Fernet(encryption_key_bytes)
+            except (ValueError, TypeError) as e:
+                # If key is invalid, generate a new one for development
+                print(f"Warning: Invalid ENCRYPTION_KEY format. Generating new key. Error: {e}")
+                print(f"To fix: Generate a valid key using: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'")
+                encryption_key_bytes = Fernet.generate_key()
         
-        self.cipher = Fernet(encryption_key.encode() if isinstance(encryption_key, str) else encryption_key)
+        self.cipher = Fernet(encryption_key_bytes)
     
     def verify_firebase_token(self, id_token):
         """

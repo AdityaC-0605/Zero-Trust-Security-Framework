@@ -12,8 +12,8 @@ This comprehensive security framework combines traditional Zero Trust principles
 
 ### Prerequisites
 
-- **Node.js** 16+ and npm
-- **Python** 3.9+
+- **Node.js** 18+ and npm
+- **Python** 3.10+ (3.9 is past end of life)
 - **Firebase** account with Authentication and Firestore enabled
 - **Redis** 6.0+ (optional, for AI features)
 - **RabbitMQ** 3.8+ (optional, for background jobs)
@@ -138,7 +138,7 @@ This comprehensive security framework combines traditional Zero Trust principles
 ## 🛠️ Technology Stack
 
 ### Frontend
-- **Framework**: React 18.2+ with React Router v6
+- **Framework**: React 19.2.0 with React Router v7
 - **Styling**: Tailwind CSS with custom design system
 - **Animations**: Framer Motion
 - **Charts**: Recharts
@@ -426,11 +426,11 @@ Student:
 
 ### Backend won't start
 ```bash
-# Check if port 5000 is in use
-lsof -i :5000
+# Check if port 5001 (or configured port) is in use
+lsof -i :5001
 
 # Check Python version
-python3 --version  # Should be 3.9+
+python3 --version  # Should be 3.10+
 
 # Reinstall dependencies
 pip install -r requirements.txt
@@ -527,6 +527,6 @@ For issues or questions:
 ---
 
 **Project Version**: 1.0.0  
-**Last Updated**: November 13, 2025  
+**Last Updated**: November 20, 2025  
 **Status**: 100% Complete ✅ | Production Ready 🚀
 

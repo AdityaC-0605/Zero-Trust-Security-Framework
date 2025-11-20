@@ -37,7 +37,7 @@ py-solc-x==2.0.2
 ipfshttpclient==0.8.0a2
 
 # AI Integration (Claude API)
-anthropic==0.7.8
+anthropic>=0.74.0
 
 # Geolocation and IP Reputation
 geoip2==4.7.0
