@@ -50,8 +50,20 @@ This comprehensive security framework combines traditional Zero Trust principles
    - Enable Cloud Firestore
    - Download service account credentials → Save as `backend/firebase-credentials.json`
    - Copy web app config to `frontend/.env`
+   - See `frontend/FIREBASE_SETUP.md` for detailed setup instructions
 
-5. **Start the Application**
+5. **Deploy Firestore Indexes** (Required for optimal performance)
+   ```bash
+   cd backend
+   chmod +x deploy-indexes.sh
+   ./deploy-indexes.sh
+   ```
+   - Requires Firebase CLI: `npm install -g firebase-tools`
+   - Login: `firebase login`
+   - Set project: `firebase use zero-trust-security-framework`
+   - See `backend/DEPLOY_FIRESTORE_INDEXES.md` for detailed instructions
+
+6. **Start the Application**
    ```bash
    # Terminal 1: Backend
    cd backend && source venv/bin/activate && python run.py
@@ -60,7 +72,7 @@ This comprehensive security framework combines traditional Zero Trust principles
    cd frontend && npm start
    ```
 
-6. **Access the Application**
+7. **Access the Application**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:5001
 
@@ -86,6 +98,9 @@ This comprehensive security framework combines traditional Zero Trust principles
 │   │   ├── routes/          # API endpoints (80+)
 │   │   ├── tasks/           # Celery background jobs
 │   │   └── utils/           # Helper functions
+│   ├── firebase.json        # Firebase configuration
+│   ├── firestore.indexes.json # Firestore database indexes
+│   ├── deploy-indexes.sh    # Firestore index deployment script
 │   ├── requirements.txt
 │   └── run.py
 │
@@ -132,6 +147,7 @@ This comprehensive security framework combines traditional Zero Trust principles
 - ✅ Interactive charts and visualizations
 - ✅ Real-time updates and notifications
 - ✅ 30+ reusable UI components
+- ✅ Code quality: ESLint compliant, React hooks optimized
 
 ---
 
@@ -183,6 +199,9 @@ FIREBASE_CREDENTIALS_PATH=./firebase-credentials.json
 CORS_ORIGINS=http://localhost:3000
 PORT=5001
 
+# Encryption (Auto-generated if not set)
+ENCRYPTION_KEY=your_fernet_key_here  # Generate with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+
 # Redis & Celery
 REDIS_URL=redis://localhost:6379/0
 CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
@@ -191,6 +210,7 @@ CELERY_BROKER_URL=amqp://guest:guest@localhost:5672//
 BEHAVIORAL_TRACKING_ENABLED=true
 THREAT_PREDICTION_ENABLED=true
 CLAUDE_API_KEY=your_claude_api_key_here
+SECURITY_ASSISTANT_ENABLED=true
 
 # Blockchain (Optional)
 BLOCKCHAIN_ENABLED=true
@@ -253,8 +273,23 @@ chmod +x deploy.sh
 - `backend/render.yaml` - Render deployment
 - `backend/firestore.rules` - Firestore security rules
 - `backend/firestore.indexes.json` - Database indexes
+- `backend/firebase.json` - Firebase project configuration
+- `backend/deploy-indexes.sh` - Automated index deployment script
 
-For detailed deployment instructions, see `backend/DEPLOYMENT_GUIDE.md`.
+### Firestore Index Deployment
+
+**Important:** Firestore requires composite indexes for queries with multiple filters or ordering. Deploy indexes before production use:
+
+```bash
+cd backend
+./deploy-indexes.sh
+```
+
+This will deploy all required indexes defined in `firestore.indexes.json`. Index creation takes a few minutes. Check status in [Firebase Console](https://console.firebase.google.com/project/zero-trust-security-framework/firestore/indexes).
+
+For detailed deployment instructions, see:
+- `backend/DEPLOYMENT_GUIDE.md` - Production deployment
+- `backend/DEPLOY_FIRESTORE_INDEXES.md` - Index deployment guide
 
 ---
 
@@ -376,6 +411,7 @@ For complete API documentation, see `backend/API_DOCUMENTATION.md`.
 - **backend/README.md** - Backend-specific documentation
 - **backend/API_DOCUMENTATION.md** - Complete API reference
 - **backend/DEPLOYMENT_GUIDE.md** - Production deployment
+- **backend/DEPLOY_FIRESTORE_INDEXES.md** - Firestore index deployment guide
 - **backend/INFRASTRUCTURE_SETUP.md** - Infrastructure configuration
 - **backend/REALTIME_INFRASTRUCTURE.md** - WebSocket, Redis, Celery
 - **backend/AI_INNOVATIONS_PROGRESS.md** - AI features status
@@ -383,6 +419,7 @@ For complete API documentation, see `backend/API_DOCUMENTATION.md`.
 ### Frontend Documentation
 - **frontend/UI_ENHANCEMENTS_SUMMARY.md** - UI/UX enhancements
 - **frontend/COMPONENT_LIBRARY.md** - Component usage guide
+- **frontend/FIREBASE_SETUP.md** - Firebase configuration guide
 
 ### Specification Documents
 - **.kiro/specs/** - Complete specification documents
@@ -450,6 +487,21 @@ npm install
 - Verify credentials file exists: `backend/firebase-credentials.json`
 - Check Firebase console for enabled services
 - Verify .env files have correct Firebase config
+- See `frontend/FIREBASE_SETUP.md` for detailed setup instructions
+
+### Firestore index errors
+If you see errors like "The query requires an index":
+```bash
+# Deploy Firestore indexes
+cd backend
+./deploy-indexes.sh
+
+# Or manually via Firebase CLI
+firebase deploy --only firestore:indexes
+```
+- Requires Firebase CLI: `npm install -g firebase-tools`
+- Must be logged in: `firebase login`
+- See `backend/DEPLOY_FIRESTORE_INDEXES.md` for troubleshooting
 
 ### Redis/RabbitMQ not found
 ```bash
@@ -512,6 +564,14 @@ This project is part of an educational security framework implementation.
 - ✅ Blockchain immutable records
 - ✅ Policy-based access control
 
+### Code Quality & Maintenance
+- ✅ ESLint compliant codebase with zero warnings
+- ✅ Optimized React hooks and dependencies
+- ✅ Automated Firestore index deployment
+- ✅ Comprehensive error handling and validation
+- ✅ Production-ready configuration management
+- ✅ Detailed documentation and setup guides
+
 ---
 
 ## 📞 Support
@@ -523,6 +583,25 @@ For issues or questions:
 3. Check **backend/DEPLOYMENT_GUIDE.md** for deployment help
 4. Review application logs and health check endpoints
 5. Check platform-specific documentation
+
+---
+
+## 🔄 Recent Updates (November 2025)
+
+### Code Quality Improvements
+- ✅ Fixed all ESLint warnings and React hooks dependencies
+- ✅ Optimized component lifecycle and memory management
+- ✅ Improved error handling and validation
+
+### Infrastructure Enhancements
+- ✅ Added automated Firestore index deployment script
+- ✅ Created comprehensive Firebase setup documentation
+- ✅ Enhanced deployment configuration and error handling
+
+### Documentation
+- ✅ Added `backend/DEPLOY_FIRESTORE_INDEXES.md` - Index deployment guide
+- ✅ Added `frontend/FIREBASE_SETUP.md` - Firebase configuration guide
+- ✅ Updated troubleshooting sections with common issues
 
 ---
 
