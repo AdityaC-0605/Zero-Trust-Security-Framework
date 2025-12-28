@@ -24,9 +24,6 @@ except ImportError as e:
     SKLEARN_AVAILABLE = False
     TORCH_AVAILABLE = False
 
-from app.models.behavioral_profile import BehavioralProfile
-from app.models.behavioral_session import BehavioralSession
-
 
 class LSTMBehavioralModel(nn.Module):
     """LSTM model for behavioral biometric authentication"""

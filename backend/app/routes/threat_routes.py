@@ -1,19 +1,56 @@
 """
-Threat Prediction Routes
-Handles threat prediction and detection endpoints
+Threat Prediction and Automated Response Routes
+Handles threat prediction, detection, and automated response endpoints
 """
 
 from flask import Blueprint, request, jsonify
 from functools import wraps
 import os
+import asyncio
 from app.services.threat_predictor import threat_predictor
+from app.services.automated_threat_response import automated_threat_response
 from app.models.threat_prediction import ThreatPrediction, ThreatIndicator
 from app.services.audit_logger import log_audit_event
+from app.tasks.automated_threat_detection_tasks import (
+    run_automated_threat_detection_cycle,
+    detect_device_based_threats,
+    detect_coordinated_attacks
+)
 
 threat_bp = Blueprint('threat', __name__, url_prefix='/api/threat')
 
+# Compatibility routes for frontend expectations
+bp = Blueprint('threats', __name__, url_prefix='/api/threats')
+
 # Check if threat prediction is enabled
 THREAT_PREDICTION_ENABLED = os.getenv('THREAT_PREDICTION_ENABLED', 'false').lower() == 'true'
+
+
+@bp.route('/predictions', methods=['GET'])
+def get_threat_predictions_compat():
+    """Compatibility endpoint: frontend expects GET /api/threats/predictions"""
+    try:
+        if not THREAT_PREDICTION_ENABLED:
+            return jsonify({
+                'success': True,
+                'predictions': [],
+                'count': 0,
+                'enabled': False
+            }), 200
+
+        predictions = threat_predictor.predict_threats(user_id=None)
+        return jsonify({
+            'success': True,
+            'predictions': predictions,
+            'count': len(predictions),
+            'enabled': True
+        }), 200
+    except Exception as e:
+        print(f"Error getting predictions: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
 
 def require_threat_enabled(f):
     """Decorator to check if threat prediction is enabled"""
@@ -414,6 +451,276 @@ def get_threat_status():
             'brute_force_detection': THREAT_PREDICTION_ENABLED,
             'privilege_escalation_detection': THREAT_PREDICTION_ENABLED,
             'coordinated_attack_detection': THREAT_PREDICTION_ENABLED,
-            'prediction_tracking': THREAT_PREDICTION_ENABLED
+            'prediction_tracking': THREAT_PREDICTION_ENABLED,
+            'automated_response': THREAT_PREDICTION_ENABLED
         }
     }), 200
+
+
+# ==================== Automated Threat Detection and Response Routes ====================
+
+@threat_bp.route('/automated/detection-cycle', methods=['POST'])
+@require_threat_enabled
+def trigger_automated_detection():
+    """Manually trigger automated threat detection cycle"""
+    try:
+        # Trigger the Celery task
+        task = run_automated_threat_detection_cycle.delay()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Automated threat detection cycle triggered',
+            'task_id': task.id
+        }), 200
+        
+    except Exception as e:
+        print(f"Error triggering automated detection: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to trigger automated detection'
+        }), 500
+
+
+@threat_bp.route('/automated/device-threats', methods=['POST'])
+@require_threat_enabled
+def detect_device_threats():
+    """Detect device-based threats"""
+    try:
+        data = request.get_json() or {}
+        device_fingerprint = data.get('device_fingerprint')
+        
+        # Run detection synchronously for immediate response
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            threats = loop.run_until_complete(
+                automated_threat_response.detect_multiple_failed_attempts(device_fingerprint)
+            )
+        finally:
+            loop.close()
+        
+        return jsonify({
+            'success': True,
+            'threats_detected': len(threats),
+            'threats': threats
+        }), 200
+        
+    except Exception as e:
+        print(f"Error detecting device threats: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
+
+
+@threat_bp.route('/automated/coordinated-attacks', methods=['POST'])
+@require_threat_enabled
+def detect_coordinated_attack_threats():
+    """Detect coordinated attack threats"""
+    try:
+        # Run detection synchronously for immediate response
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            attacks = loop.run_until_complete(
+                automated_threat_response.detect_coordinated_attacks()
+            )
+        finally:
+            loop.close()
+        
+        return jsonify({
+            'success': True,
+            'attacks_detected': len(attacks),
+            'attacks': attacks
+        }), 200
+        
+    except Exception as e:
+        print(f"Error detecting coordinated attacks: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
+
+
+@threat_bp.route('/automated/blocked-devices', methods=['GET'])
+@require_threat_enabled
+def get_blocked_devices():
+    """Get list of blocked device fingerprints"""
+    try:
+        blocked_devices = automated_threat_response.get_blocked_devices()
+        
+        return jsonify({
+            'success': True,
+            'blocked_devices': blocked_devices,
+            'count': len(blocked_devices)
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting blocked devices: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
+
+
+@threat_bp.route('/automated/locked-segments', methods=['GET'])
+@require_threat_enabled
+def get_locked_segments():
+    """Get list of locked resource segments"""
+    try:
+        locked_segments = automated_threat_response.get_locked_segments()
+        
+        return jsonify({
+            'success': True,
+            'locked_segments': locked_segments,
+            'count': len(locked_segments)
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting locked segments: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
+
+
+@threat_bp.route('/automated/unblock-device', methods=['POST'])
+@require_threat_enabled
+def unblock_device():
+    """Manually unblock a device fingerprint"""
+    try:
+        data = request.get_json()
+        device_fingerprint = data.get('device_fingerprint')
+        admin_user_id = data.get('admin_user_id')
+        
+        if not device_fingerprint or not admin_user_id:
+            return jsonify({
+                'success': False,
+                'message': 'device_fingerprint and admin_user_id are required'
+            }), 400
+        
+        # Run unblock operation
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            success = loop.run_until_complete(
+                automated_threat_response.unblock_device(device_fingerprint, admin_user_id)
+            )
+        finally:
+            loop.close()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Device unblocked successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to unblock device'
+            }), 400
+        
+    except Exception as e:
+        print(f"Error unblocking device: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
+
+
+@threat_bp.route('/automated/unlock-segment', methods=['POST'])
+@require_threat_enabled
+def unlock_resource_segment():
+    """Manually unlock a resource segment"""
+    try:
+        data = request.get_json()
+        segment_id = data.get('segment_id')
+        admin_user_id = data.get('admin_user_id')
+        
+        if not segment_id or not admin_user_id:
+            return jsonify({
+                'success': False,
+                'message': 'segment_id and admin_user_id are required'
+            }), 400
+        
+        # Run unlock operation
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            success = loop.run_until_complete(
+                automated_threat_response.unlock_resource_segment(segment_id, admin_user_id)
+            )
+        finally:
+            loop.close()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Resource segment unlocked successfully'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to unlock resource segment'
+            }), 400
+        
+    except Exception as e:
+        print(f"Error unlocking resource segment: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500
+
+
+@threat_bp.route('/automated/status', methods=['GET'])
+@require_threat_enabled
+def get_automated_threat_status():
+    """Get automated threat detection system status"""
+    try:
+        blocked_devices = automated_threat_response.get_blocked_devices()
+        locked_segments = automated_threat_response.get_locked_segments()
+        
+        # Get recent detection statistics
+        from app.firebase_config import db
+        from datetime import datetime, timedelta
+        
+        cutoff_time = datetime.utcnow() - timedelta(hours=24)
+        
+        # Count recent security alerts
+        alerts_query = db.collection('security_alerts')\
+                        .where('timestamp', '>=', cutoff_time)
+        
+        recent_alerts = len(list(alerts_query.stream()))
+        
+        # Count recent threat predictions
+        predictions_query = db.collection('threat_predictions')\
+                           .where('predicted_at', '>=', cutoff_time)
+        
+        recent_predictions = len(list(predictions_query.stream()))
+        
+        return jsonify({
+            'success': True,
+            'status': {
+                'system_active': True,
+                'blocked_devices_count': len(blocked_devices),
+                'locked_segments_count': len(locked_segments),
+                'recent_alerts_24h': recent_alerts,
+                'recent_predictions_24h': recent_predictions,
+                'detection_thresholds': {
+                    'failed_attempts': automated_threat_response.failed_attempt_threshold,
+                    'time_window_minutes': automated_threat_response.time_window_minutes,
+                    'coordinated_attack_users': automated_threat_response.coordinated_attack_threshold
+                }
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error getting automated threat status: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error'
+        }), 500

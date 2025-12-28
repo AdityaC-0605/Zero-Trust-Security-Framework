@@ -15,12 +15,8 @@ from redis_config import (
     cache_get,
     cache_delete,
     cache_exists,
-    cache_behavioral_profile,
-    get_cached_behavioral_profile,
     cache_context_score,
     get_cached_context_score,
-    cache_threat_predictions,
-    get_cached_threat_predictions,
     cache_model,
     get_cached_model,
     session_set,
@@ -97,10 +93,8 @@ class CacheService:
         Returns:
             bool: Success status
         """
-        if ttl is None:
-            ttl = CacheService.TTL_BEHAVIORAL_MODEL
-        
-        return cache_behavioral_profile(user_id, baseline_data, ttl)
+        # Behavioral profile caching disabled - service removed
+        return False
     
     @staticmethod
     def get_behavioral_baseline(user_id):
@@ -113,7 +107,8 @@ class CacheService:
         Returns:
             Baseline data or None
         """
-        return get_cached_behavioral_profile(user_id)
+        # Behavioral profile caching disabled - service removed
+        return None
     
     # Contextual Intelligence Caching
     
@@ -195,10 +190,8 @@ class CacheService:
         Returns:
             bool: Success status
         """
-        if ttl is None:
-            ttl = CacheService.TTL_THREAT_PREDICTION
-        
-        return cache_threat_predictions(predictions, ttl)
+        # Threat prediction caching disabled - service removed
+        return False
     
     @staticmethod
     def get_threat_predictions_list():
@@ -208,7 +201,8 @@ class CacheService:
         Returns:
             List of predictions or None
         """
-        return get_cached_threat_predictions()
+        # Threat prediction caching disabled - service removed
+        return None
     
     @staticmethod
     def cache_user_threat_score(user_id, threat_score, ttl=None):
@@ -517,7 +511,6 @@ class CacheService:
         
         patterns = [
             f"behavioral_model:{user_id}",
-            f"behavioral_profile:{user_id}",
             f"threat_score:{user_id}",
         ]
         

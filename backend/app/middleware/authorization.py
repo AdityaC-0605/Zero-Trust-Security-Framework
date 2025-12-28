@@ -3,9 +3,11 @@ Authorization Middleware
 Role-based access control decorators for API endpoints
 """
 
+import os
 from flask import request, jsonify, make_response
 from functools import wraps
-from app.services.auth_service import auth_service
+from app.services.auth_service_simple import auth_service
+import inspect
 
 
 def require_auth(f):
@@ -14,7 +16,7 @@ def require_auth(f):
     Verifies JWT session token, checks inactivity timeout, and adds user info to request
     """
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    async def decorated_function(*args, **kwargs):
         # Get session token from cookie
         session_token = request.cookies.get('session_token')
         
@@ -33,11 +35,18 @@ def require_auth(f):
             request.user_id = payload['user_id']
             request.user_role = payload['role']
             request.user_email = payload.get('email')
+            request.current_user = {
+                'uid': payload.get('user_id'),
+                'role': payload.get('role'),
+                'email': payload.get('email')
+            }
             
             # Update last activity timestamp for non-GET requests
             if request.method not in ['GET', 'HEAD', 'OPTIONS']:
                 auth_service.update_last_activity(payload['user_id'])
-            
+
+            if inspect.iscoroutinefunction(f):
+                return await f(*args, **kwargs)
             return f(*args, **kwargs)
         except Exception as e:
             error_message = str(e)
@@ -52,9 +61,13 @@ def require_auth(f):
             }), 401)
             
             if "timeout" in error_message.lower() or "expired" in error_message.lower():
-                response.set_cookie('session_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
-                response.set_cookie('refresh_token', '', max_age=0, httponly=True, secure=True, samesite='Strict')
-                response.set_cookie('csrf_token', '', max_age=0, samesite='Strict')
+                is_development = os.getenv('FLASK_ENV') == 'development'
+                cookie_secure = not is_development
+                cookie_samesite = 'Lax' if is_development else 'Strict'
+                
+                response.set_cookie('session_token', '', max_age=0, httponly=True, secure=cookie_secure, samesite=cookie_samesite)
+                response.set_cookie('refresh_token', '', max_age=0, httponly=True, secure=cookie_secure, samesite=cookie_samesite)
+                response.set_cookie('csrf_token', '', max_age=0, samesite=cookie_samesite)
             
             return response
     
@@ -73,9 +86,12 @@ def require_role(*allowed_roles):
     Args:
         *allowed_roles: Variable number of role strings
     """
+    if len(allowed_roles) == 1 and isinstance(allowed_roles[0], (list, tuple, set)):
+        allowed_roles = tuple(allowed_roles[0])
+
     def decorator(f):
         @wraps(f)
-        def decorated_function(*args, **kwargs):
+        async def decorated_function(*args, **kwargs):
             # Check if user_role is set by require_auth
             if not hasattr(request, 'user_role'):
                 return jsonify({
@@ -95,7 +111,9 @@ def require_role(*allowed_roles):
                         'message': f'Access denied. Required role: {", ".join(allowed_roles)}'
                     }
                 }), 403
-            
+
+            if inspect.iscoroutinefunction(f):
+                return await f(*args, **kwargs)
             return f(*args, **kwargs)
         
         return decorated_function
@@ -108,8 +126,11 @@ def require_admin(f):
     Shorthand for @require_role('admin')
     """
     @wraps(f)
+    @require_auth
     @require_role('admin')
-    def decorated_function(*args, **kwargs):
+    async def decorated_function(*args, **kwargs):
+        if inspect.iscoroutinefunction(f):
+            return await f(*args, **kwargs)
         return f(*args, **kwargs)
     
     return decorated_function
@@ -121,8 +142,11 @@ def require_faculty_or_admin(f):
     Shorthand for @require_role('faculty', 'admin')
     """
     @wraps(f)
+    @require_auth
     @require_role('faculty', 'admin')
-    def decorated_function(*args, **kwargs):
+    async def decorated_function(*args, **kwargs):
+        if inspect.iscoroutinefunction(f):
+            return await f(*args, **kwargs)
         return f(*args, **kwargs)
     
     return decorated_function

@@ -107,6 +107,12 @@ def get_notifications():
         }), 500
 
 
+@bp.route('', methods=['GET'])
+@require_auth
+def get_notifications_no_slash():
+    return get_notifications()
+
+
 @bp.route('/<notification_id>', methods=['GET'])
 @require_auth
 def get_notification(notification_id):

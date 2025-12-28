@@ -8,6 +8,7 @@ from functools import wraps
 import traceback
 import sys
 from app.services.audit_logger import audit_logger
+import inspect
 
 
 class AppError(Exception):
@@ -294,3 +295,42 @@ def validate_word_count(text, field_name, min_words=None):
             field=field_name,
             details={'wordCount': word_count, 'minWords': min_words}
         )
+
+
+def handle_service_error(f):
+    """
+    Decorator for handling errors in service methods
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception as e:
+            print(f"Service error in {f.__name__}: {str(e)}")
+            raise
+    return decorated_function
+
+
+def handle_api_error(f):
+    """
+    Decorator for handling errors in API routes
+    """
+    @wraps(f)
+    async def decorated_function(*args, **kwargs):
+        try:
+            if inspect.iscoroutinefunction(f):
+                return await f(*args, **kwargs)
+            result = f(*args, **kwargs)
+            if inspect.isawaitable(result):
+                return await result
+            return result
+        except Exception as e:
+            print(f"API error in {f.__name__}: {str(e)}")
+            return jsonify({
+                "success": False,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": str(e)
+                }
+            }), 500
+    return decorated_function

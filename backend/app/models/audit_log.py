@@ -17,7 +17,56 @@ class AuditLog:
         'admin_action',
         'policy_change',
         'mfa_event',
-        'system_error'
+        'system_error',
+        'validation_error',
+        'registration',
+        'device_registration',
+        'visitor_management',
+        'break_glass',
+        'response_validation_error',
+        'client_unblocked',
+        'webhook_registered',
+        'webhook_unregistered',
+        'webhook_delivery',
+        'saml_provider_registered',
+        'oidc_provider_registered',
+        'saml_login_initiated',
+        'saml_login_success',
+        'saml_login_failure',
+        'oidc_login_initiated',
+        'oidc_login_success',
+        'oidc_login_failure',
+        'activity_map_access',
+        'heatmap_data_access',
+        'security_event_submitted',
+        'metrics_access',
+        'alert_history_access',
+        'security_event_acknowledged',
+        'security_status_check',
+        'device_validation',
+        'device_removal',
+        'enhanced_user_creation',
+        'user_claims_update',
+        'risk_profile_update',
+        'account_disabled',
+        'account_enabled',
+        'audit_log_archival',
+        'ml_model_storage',
+        'storage_cleanup',
+        'user_cleanup',
+        'token_cleanup',
+        'security_violation',
+        'api_key_created',
+        'api_key_revoked',
+        'alert_broadcast',
+        'security_event_stored',
+        'api_usage',
+        'emergency_mode_enabled',
+        'emergency_mode_disabled',
+        'rate_limit_exceeded',
+        'oauth_token_generated',
+        'oauth_token_revoked',
+        'oauth_client_registered'
     ]
     
     # Valid result types
@@ -71,7 +120,7 @@ class AuditLog:
         return {
             'logId': self.log_id,
             'eventType': self.event_type,
-            'userId': self.user_id,
+            'userId': self.user_id or 'anonymous',  # Handle None user_id
             'action': self.action,
             'resource': self.resource,
             'result': self.result,
@@ -119,8 +168,9 @@ class AuditLog:
         if not self.event_type:
             return False, "Event type is required"
         
-        if not self.user_id:
-            return False, "User ID is required"
+        # Allow anonymous events (user_id can be None for system events, registration, etc.)
+        # if not self.user_id:
+        #     return False, "User ID is required"
         
         if not self.action:
             return False, "Action is required"

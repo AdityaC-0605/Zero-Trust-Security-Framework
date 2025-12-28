@@ -19,9 +19,17 @@ from .notification import (
     delete_expired_notifications,
     get_unread_count
 )
-from .behavioral_profile import BehavioralProfile
-from .behavioral_session import BehavioralSession
-from .threat_prediction import ThreatPrediction, ThreatIndicator
+from .resource_segment import (
+    ResourceSegment,
+    create_resource_segment,
+    get_resource_segment_by_id,
+    get_all_resource_segments,
+    get_segments_by_security_level,
+    get_segments_by_role,
+    update_resource_segment,
+    delete_resource_segment,
+    create_default_resource_segments
+)
 
 __all__ = [
     'User', 
@@ -47,8 +55,13 @@ __all__ = [
     'mark_all_notifications_as_read',
     'delete_expired_notifications',
     'get_unread_count',
-    'BehavioralProfile',
-    'BehavioralSession',
-    'ThreatPrediction',
-    'ThreatIndicator'
+    'ResourceSegment',
+    'create_resource_segment',
+    'get_resource_segment_by_id',
+    'get_all_resource_segments',
+    'get_segments_by_security_level',
+    'get_segments_by_role',
+    'update_resource_segment',
+    'delete_resource_segment',
+    'create_default_resource_segments'
 ]

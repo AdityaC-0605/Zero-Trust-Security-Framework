@@ -57,6 +57,14 @@ def create_or_update_policy():
             }), 400
         
         db = get_firestore_client()
+        if not db:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'code': 'FIRESTORE_UNAVAILABLE',
+                    'message': 'Firestore is not available in this environment'
+                }
+            }), 503
         
         # Check if this is an update (policyId provided)
         policy_id = data.get('policyId')
@@ -143,6 +151,7 @@ def create_or_update_policy():
             audit_logger.log_policy_change(
                 admin_id=admin_id,
                 policy_id=policy_id,
+                action='update',
                 changes={
                     'action': 'update',
                     'updatedFields': list(update_data.keys()),
@@ -218,6 +227,7 @@ def create_or_update_policy():
             audit_logger.log_policy_change(
                 admin_id=admin_id,
                 policy_id=policy.policy_id,
+                action='create',
                 changes={
                     'action': 'create',
                     'policyData': policy.to_dict()
@@ -271,6 +281,12 @@ def get_policy_rules():
             }), 403
         
         db = get_firestore_client()
+        if not db:
+            return jsonify({
+                'success': True,
+                'policies': [],
+                'totalCount': 0
+            }), 200
         
         # Get policies
         active_only = not include_inactive
@@ -324,6 +340,14 @@ def get_policy(policy_id):
     """
     try:
         db = get_firestore_client()
+        if not db:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'code': 'FIRESTORE_UNAVAILABLE',
+                    'message': 'Firestore is not available in this environment'
+                }
+            }), 503
         policy = get_policy_by_id(db, policy_id)
         
         if not policy:
@@ -384,6 +408,14 @@ def delete_policy_route(policy_id):
         ip_address = get_client_ip()
         
         db = get_firestore_client()
+        if not db:
+            return jsonify({
+                'success': False,
+                'error': {
+                    'code': 'FIRESTORE_UNAVAILABLE',
+                    'message': 'Firestore is not available in this environment'
+                }
+            }), 503
         
         # Get policy before deletion for audit log
         policy = get_policy_by_id(db, policy_id)
@@ -404,9 +436,9 @@ def delete_policy_route(policy_id):
         audit_logger.log_policy_change(
             admin_id=admin_id,
             policy_id=policy_id,
+            action='delete',
             changes={
                 'action': 'delete',
-                'policyName': policy.name,
                 'policyData': policy.to_dict()
             },
             ip_address=ip_address
