@@ -227,7 +227,14 @@ AUDIT_ENCRYPTION_KEY=your-audit-key
 
 # CORS Configuration
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# Test User Configuration (Optional)
+TEST_USER_EMAIL=test@example.com
+TEST_USER_PASSWORD=your-secure-password
+TEST_USER_NAME=Test User
 ```
+
+**⚠️ Security Note**: Never commit `.env` files or hardcode credentials in your code. Use the provided `.env.example` as a template.
 
 ### Frontend Environment Variables (.env.local)
 

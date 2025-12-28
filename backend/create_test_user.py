@@ -7,7 +7,15 @@ This script creates the test user in Firebase Authentication
 import os
 import sys
 import json
+import secrets
+import string
 from datetime import datetime
+
+def generate_secure_password(length=12):
+    """Generate a secure random password"""
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    password = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return password
 
 def create_test_user():
     """Create the test user in Firebase Authentication"""
@@ -32,10 +40,16 @@ def create_test_user():
             firebase_admin.initialize_app(cred)
             print("✅ Firebase initialized")
         
-        # Test user credentials
-        email = "test@example.com"
-        password = "Test123!"
-        name = "Test User"
+        # Test user credentials - use environment variables or generate secure password
+        email = os.getenv("TEST_USER_EMAIL", "test@example.com")
+        password = os.getenv("TEST_USER_PASSWORD")
+        
+        if not password:
+            # Generate a secure random password
+            password = generate_secure_password()
+            print("🔐 Generated secure password for test user")
+        
+        name = os.getenv("TEST_USER_NAME", "Test User")
         
         print(f"👤 Creating user: {email}")
         
@@ -45,6 +59,7 @@ def create_test_user():
             print(f"✅ User already exists: {existing_user.uid}")
             print(f"   Email: {existing_user.email}")
             print(f"   Name: {existing_user.display_name}")
+            print("\n💡 To reset password, delete the user first or use a different email")
             return True
         except auth.UserNotFoundError:
             # User doesn't exist, create it
@@ -70,6 +85,7 @@ def create_test_user():
             'email': user.email,
             'name': user.display_name or name,
             'role': 'admin',  # Make test user an admin
+            'isActive': True,
             'created_at': datetime.utcnow(),
             'last_login': datetime.utcnow(),
             'email_verified': True
@@ -77,6 +93,12 @@ def create_test_user():
         
         db.collection('users').document(user.uid).set(user_doc)
         print(f"✅ User document created in Firestore")
+        
+        # Store credentials securely (only show once)
+        print(f"\n🔐 IMPORTANT - Save these credentials:")
+        print(f"   Email: {email}")
+        print(f"   Password: {password}")
+        print(f"\n⚠️  This password will not be shown again!")
         
         return True
         
@@ -89,17 +111,24 @@ def main():
     print("🚀 Creating Test User for Zero Trust Framework")
     print("=" * 50)
     
+    # Check for environment variables
+    if os.getenv("TEST_USER_PASSWORD"):
+        print("🔐 Using password from TEST_USER_PASSWORD environment variable")
+    else:
+        print("🔐 No TEST_USER_PASSWORD set, will generate secure random password")
+    
     success = create_test_user()
     
     if success:
         print("\n🎉 Test user created successfully!")
-        print("\n📝 Login Credentials:")
-        print("   Email: test@example.com")
-        print("   Password: Test123!")
         print("\n🔗 You can now login at: http://localhost:3000")
+        print("\n💡 Environment Variables (optional):")
+        print("   TEST_USER_EMAIL - Custom email (default: test@example.com)")
+        print("   TEST_USER_PASSWORD - Custom password (default: auto-generated)")
+        print("   TEST_USER_NAME - Custom name (default: Test User)")
     else:
         print("\n❌ Failed to create test user")
-        print("\n💡 Try running the frontend signup instead:")
+        print("\n💡 Alternative - Use frontend signup:")
         print("   1. Go to http://localhost:3000/signup")
         print("   2. Create an account with any email/password")
         print("   3. The system will handle Firebase registration automatically")
