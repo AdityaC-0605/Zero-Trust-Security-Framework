@@ -158,7 +158,6 @@ export default function VisitorTrackingPage() {
                       <Progress
                         value={visitor.progress}
                         className="h-1"
-                        // @ts-ignore
                         indicatorClassName={
                           visitor.status === "Alert"
                             ? "bg-destructive"

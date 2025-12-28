@@ -107,13 +107,42 @@ class DeviceFingerprintService:
             # Generate fingerprint hash
             fingerprint_hash = self.generate_fingerprint_hash(fingerprint_data)
             
-            # Check for duplicate fingerprint
-            if self._fingerprint_exists(fingerprint_hash):
-                return {
-                    "success": False,
-                    "error": "DUPLICATE_FINGERPRINT",
-                    "message": "Device fingerprint already registered"
-                }
+            # Check for duplicate fingerprint and handle same-user reuse/reactivation
+            try:
+                query = self.db.collection('deviceFingerprints').where(
+                    'fingerprintHash', '==', fingerprint_hash
+                ).limit(1)
+                results = query.get()
+                if results:
+                    existing_doc = results[0]
+                    existing = existing_doc.to_dict()
+                    if existing.get('userId') == user_id:
+                        if not existing.get('isActive', True):
+                            existing_doc.reference.update({
+                                'isActive': True,
+                                'lastVerified': datetime.utcnow()
+                            })
+                        logger.info(f"Reusing existing device for user {user_id}: {existing.get('deviceId')}")
+                        return {
+                            "success": True,
+                            "deviceId": existing.get('deviceId'),
+                            "trustScore": existing.get('trustScore', 100),
+                            "message": "Device already registered; using existing record"
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "DUPLICATE_FINGERPRINT",
+                            "message": "Device fingerprint already registered"
+                        }
+            except Exception:
+                # Fallback to original duplicate behavior on query error
+                if self._fingerprint_exists(fingerprint_hash):
+                    return {
+                        "success": False,
+                        "error": "DUPLICATE_FINGERPRINT",
+                        "message": "Device fingerprint already registered"
+                    }
             
             # Create device record
             device_id = f"device_{user_id}_{len(existing_devices) + 1}"

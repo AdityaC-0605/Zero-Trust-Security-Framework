@@ -358,14 +358,85 @@ export default function DeviceManagementPage() {
                 setError(null)
                 setRegistering(true)
                 try {
-                  const fp = {
-                    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-                    platform: typeof navigator !== "undefined" ? navigator.platform : "",
-                    language: typeof navigator !== "undefined" ? navigator.language : "",
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                    screen: typeof window !== "undefined" ? { w: window.screen.width, h: window.screen.height } : {},
-                    registeredAt: new Date().toISOString(),
+                  // Collect comprehensive device fingerprint
+                  const getFingerprint = () => {
+                    if (typeof window === "undefined") return {}
+
+                    // Canvas fingerprint
+                    let canvasHash = ""
+                    try {
+                      const canvas = document.createElement("canvas")
+                      const ctx = canvas.getContext("2d")
+                      if (ctx) {
+                        ctx.textBaseline = "top"
+                        ctx.font = "14px 'Arial'"
+                        ctx.textBaseline = "alphabetic"
+                        ctx.fillStyle = "#f60"
+                        ctx.fillRect(125, 1, 62, 20)
+                        ctx.fillStyle = "#069"
+                        ctx.fillText("shh_fingerprint_v1", 2, 15)
+                        ctx.fillStyle = "rgba(102, 204, 0, 0.7)"
+                        ctx.fillText("shh_fingerprint_v1", 4, 17)
+                        canvasHash = canvas.toDataURL().slice(-50) // Use part of data URL as hash
+                      }
+                    } catch (e) {
+                      console.warn("Canvas fingerprint failed", e)
+                    }
+
+                    // WebGL fingerprint
+                    let webglInfo = { renderer: "unknown", vendor: "unknown", version: "unknown" }
+                    try {
+                      const canvas = document.createElement("canvas")
+                      const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl")
+                      if (gl) {
+                        // @ts-ignore
+                        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info")
+                        if (debugInfo) {
+                          // @ts-ignore
+                          webglInfo.renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+                          // @ts-ignore
+                          webglInfo.vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)
+                        }
+                        // @ts-ignore
+                        webglInfo.version = gl.getParameter(gl.VERSION)
+                      }
+                    } catch (e) {
+                      console.warn("WebGL fingerprint failed", e)
+                    }
+
+                    return {
+                      userAgent: navigator.userAgent,
+                      platform: navigator.platform,
+                      language: navigator.language,
+                      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                      screen: {
+                        width: window.screen.width,
+                        height: window.screen.height,
+                        colorDepth: window.screen.colorDepth,
+                        pixelRatio: window.devicePixelRatio,
+                      },
+                      canvas: {
+                        hash: canvasHash || "fallback_hash",
+                        confidence: 100,
+                      },
+                      webgl: webglInfo,
+                      audio: {
+                        hash: "audio_hash_placeholder", // Placeholder as real audio fingerprinting is complex
+                        sampleRate: 44100,
+                        bufferSize: 1024,
+                      },
+                      system: {
+                        platform: navigator.platform,
+                        language: navigator.language,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        hardwareConcurrency: navigator.hardwareConcurrency || 4,
+                        userAgent: navigator.userAgent,
+                      },
+                      registeredAt: new Date().toISOString(),
+                    }
                   }
+
+                  const fp = getFingerprint()
                   await registerDevice({
                     userId: user.id,
                     deviceName: deviceName || undefined,

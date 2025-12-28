@@ -21,14 +21,10 @@ from app.tasks.policy_tasks import (
     check_policy_health
 )
 
-from app.tasks.blockchain_tasks import (
-    record_audit_event,
-    sync_audit_trail,
-    verify_audit_integrity,
-    batch_record_events,
-    store_large_data_ipfs,
-    check_blockchain_health,
-    cleanup_old_blockchain_records
+from app.tasks.automated_threat_detection_tasks import (
+    run_automated_threat_detection_cycle,
+    detect_device_based_threats,
+    detect_coordinated_attacks
 )
 
 from app.tasks.session_monitoring_tasks import (
@@ -36,11 +32,6 @@ from app.tasks.session_monitoring_tasks import (
     check_session_risk
 )
 
-from app.tasks.threat_prediction_tasks import (
-    generate_threat_predictions,
-    run_threat_detections,
-    calculate_prediction_accuracy
-)
 
 from app.tasks.cleanup_tasks import (
     cleanup_expired_sessions,
@@ -67,23 +58,15 @@ __all__ = [
     'rollback_policy',
     'check_policy_health',
     
-    # Blockchain Tasks
-    'record_audit_event',
-    'sync_audit_trail',
-    'verify_audit_integrity',
-    'batch_record_events',
-    'store_large_data_ipfs',
-    'check_blockchain_health',
-    'cleanup_old_blockchain_records',
+    # Automated Threat Detection Tasks
+    'run_automated_threat_detection_cycle',
+    'detect_device_based_threats',
+    'detect_coordinated_attacks',
     
     # Session Monitoring Tasks
     'monitor_active_sessions',
     'check_session_risk',
     
-    # Threat Prediction Tasks
-    'generate_threat_predictions',
-    'run_threat_detections',
-    'calculate_prediction_accuracy',
     
     # Cleanup Tasks
     'cleanup_expired_sessions',

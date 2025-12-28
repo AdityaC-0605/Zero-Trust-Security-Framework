@@ -24,3 +24,11 @@ def update_threat_models():
 def train_user_behavioral_model():
     """Stub for user behavioral model training"""
     return {"status": "disabled", "message": "User behavioral model training is disabled"}
+
+def update_behavioral_baseline():
+    """Stub for behavioral baseline updates"""
+    return {"status": "disabled", "message": "Behavioral baseline updates are disabled"}
+
+def cleanup_old_models():
+    """Stub for cleaning up old models"""
+    return {"status": "disabled", "message": "Model cleanup is disabled"}

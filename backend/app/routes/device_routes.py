@@ -86,11 +86,13 @@ def register_device():
             
     except Exception as e:
         logger.error(f"Device registration error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "success": False,
             "error": {
                 "code": "REGISTRATION_ERROR",
-                "message": "Failed to register device"
+                "message": f"Failed to register device: {str(e)}"
             }
         }), 500
 

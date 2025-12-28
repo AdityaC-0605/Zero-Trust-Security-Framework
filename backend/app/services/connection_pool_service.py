@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from queue import Queue, Empty, Full
 from firebase_admin import firestore
 import redis
-from redis_config import get_redis_client, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
+from redis_config import get_redis_client, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD, is_redis_available
 
 logger = logging.getLogger(__name__)
 
@@ -259,11 +259,14 @@ class ConnectionPoolService:
                 logger.info("Firestore connection pool initialized")
                 
                 # Initialize Redis pool
-                self._redis_pool = RedisConnectionPool(
-                    max_connections=30,
-                    min_connections=10
-                )
-                logger.info("Redis connection pool initialized")
+                if is_redis_available():
+                    self._redis_pool = RedisConnectionPool(
+                        max_connections=30,
+                        min_connections=10
+                    )
+                    logger.info("Redis connection pool initialized")
+                else:
+                    logger.info("Redis not available, skipping connection pool initialization")
                 
                 self._initialized = True
                 

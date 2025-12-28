@@ -10,6 +10,8 @@ from typing import Dict, List, Tuple, Optional
 import pickle
 import json
 
+from app.models.behavioral_session import BehavioralSession
+
 # ML imports
 try:
     from sklearn.preprocessing import StandardScaler

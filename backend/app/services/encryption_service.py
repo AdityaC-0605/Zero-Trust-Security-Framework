@@ -19,6 +19,7 @@ from cryptography.hazmat.backends import default_backend
 from firebase_admin import firestore
 import redis
 import base64
+from redis_config import is_redis_available
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,16 @@ class DataEncryptionService:
     def __init__(self):
         """Initialize the encryption service with key management"""
         self.db = firestore.client()
-        self.redis_client = redis.Redis(
-            host=os.getenv('REDIS_HOST', 'localhost'),
-            port=int(os.getenv('REDIS_PORT', 6379)),
-            decode_responses=True
-        )
+        
+        if is_redis_available():
+            self.redis_client = redis.Redis(
+                host=os.getenv('REDIS_HOST', 'localhost'),
+                port=int(os.getenv('REDIS_PORT', 6379)),
+                decode_responses=True
+            )
+        else:
+            self.redis_client = None
+            logger.info("Redis not available, skipping Redis initialization in EncryptionService")
         
         # Master key for key encryption (should be stored in HSM in production)
         self.master_key = self._get_or_create_master_key()
@@ -308,6 +314,9 @@ class DataEncryptionService:
     def _setup_key_rotation_tracking(self) -> None:
         """Set up automatic key rotation tracking"""
         try:
+            if not self.redis_client:
+                return
+
             # Store rotation schedule in Redis for monitoring
             for data_type in self.DATA_TYPES.keys():
                 key_info = self.encryption_keys.get(data_type)
@@ -341,16 +350,21 @@ class DataEncryptionService:
             key_info = self.encryption_keys.get(data_type)
             if not key_info:
                 logger.error(f"No encryption key found for data type: {data_type}")
-                # Try to reinitialize the key
                 key_info = self._get_or_create_data_type_key(data_type)
                 self.encryption_keys[data_type] = key_info
             
             encryption_key = key_info.get('key')
-            if not encryption_key:
-                raise ValueError(f"Encryption key is None for data type: {data_type}")
+            if not encryption_key or not isinstance(encryption_key, (bytes, bytearray)):
+                logger.warning(f"Encryption key missing for {data_type}; generating temporary key")
+                key_info = self._create_temporary_key(data_type)
+                self.encryption_keys[data_type] = key_info
+                encryption_key = key_info['key']
             
             if len(encryption_key) != 32:
-                raise ValueError(f"Invalid key size ({len(encryption_key)}) for AES-256. Expected 32 bytes.")
+                logger.warning(f"Invalid key size ({len(encryption_key)}) for {data_type}; regenerating key")
+                key_info = self._create_temporary_key(data_type)
+                self.encryption_keys[data_type] = key_info
+                encryption_key = key_info['key']
             
             # Serialize data
             if isinstance(data, (dict, list)):

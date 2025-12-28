@@ -9,13 +9,16 @@ from datetime import datetime, timedelta
 import uuid
 
 from app.services.auth_service import auth_service
-from app.services.jit_access_service import get_jit_access_service, JITAccessRequest
+from app.services.jit_access_service import get_jit_access_service, JITAccessRequest, JITAccessStatus
 from app.models.user import get_user_by_id
 from app.models.resource_segment import get_resource_segment_by_id, get_segments_by_role
 from app.models.audit_log import create_audit_log
 from app.models.notification import create_notification
 from app.firebase_config import get_firestore_client
 from app.middleware.security import rate_limit, sanitize_input, validate_request_size
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('jit_access', __name__, url_prefix='/api/jit-access')
 
@@ -201,7 +204,7 @@ def submit_jit_request():
         evaluation_result = run_async(jit_service.evaluate_jit_request(request_data))
         
         # Update JIT request with evaluation results
-        jit_request.status = JITAccessRequest.JITAccessStatus(evaluation_result['decision'])
+        jit_request.status = JITAccessStatus(evaluation_result['decision'])
         jit_request.risk_assessment = evaluation_result.get('riskAssessment', {})
         jit_request.ml_evaluation = evaluation_result.get('mlEvaluation', {})
         jit_request.confidence_score = evaluation_result.get('confidenceScore', 0)
@@ -221,23 +224,26 @@ def submit_jit_request():
         
         # Create audit log
         from app.utils.async_helper import run_async
-        run_async(create_audit_log(
+        # Add sub_type to details since it's not a valid argument for create_audit_log
+        audit_details = {
+            'sub_type': 'request_submitted',
+            'request_id': jit_request.request_id,
+            'decision': evaluation_result['decision'],
+            'confidence_score': evaluation_result.get('confidenceScore', 0),
+            'duration_hours': duration,
+            'urgency': urgency,
+            'risk_score': evaluation_result.get('riskAssessment', {}).get('riskScore', 0)
+        }
+        
+        create_audit_log(
             db,
-            event_type='jit_access',
-            sub_type='request_submitted',
+            event_type='access_request',
             user_id=user_id,
-            resource_segment_id=data['resourceSegmentId'],
+            resource=data['resourceSegmentId'],
             action=f'JIT access request for {segment.name}',
             result='success',
-            details={
-                'request_id': jit_request.request_id,
-                'decision': evaluation_result['decision'],
-                'confidence_score': evaluation_result.get('confidenceScore', 0),
-                'duration_hours': duration,
-                'urgency': urgency,
-                'risk_score': evaluation_result.get('riskAssessment', {}).get('riskScore', 0)
-            }
-        ))
+            details=audit_details
+        )
         
         # Create notification for user
         run_async(_create_jit_notification(
@@ -522,21 +528,21 @@ def revoke_jit_access(request_id):
         
         # Create audit log
         segment = get_resource_segment_by_id(db, jit_data.get('resourceSegmentId'))
-        run_async(create_audit_log(
+        create_audit_log(
             db,
-            event_type='jit_access',
-            sub_type='access_revoked',
+            event_type='access_request',
             user_id=user_id,
-            target_user_id=jit_data.get('userId'),
-            resource_segment_id=jit_data.get('resourceSegmentId'),
+            resource=jit_data.get('resourceSegmentId'),
             action=f'JIT access revoked for {segment.name if segment else "unknown segment"}',
             result='success',
             details={
+                'sub_type': 'access_revoked',
                 'request_id': request_id,
+                'target_user_id': jit_data.get('userId'),
                 'reason': revocation_reason,
                 'revoked_by_role': user_role
             }
-        ))
+        )
         
         # Create notification for affected user (if admin revoked someone else's access)
         if jit_data.get('userId') != user_id:
