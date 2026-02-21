@@ -2,7 +2,7 @@
 
 A comprehensive, production-ready security framework implementing Zero Trust principles with advanced access control, visitor management, and real-time monitoring for educational institutions.
 
-**Project Status: ✅ Fully Functional | 🚀 Production Ready | � Secudre**
+**Project Status: ✅ Fully Functional | 🚀 Production Ready**
 
 ## 🌟 Overview
 
@@ -20,78 +20,82 @@ This Zero Trust Security Framework provides a complete solution for modern insti
 
 ## 🚀 Quick Start
 
+This is the easiest way to run the project locally.
+
 ### Prerequisites
 
-- **Node.js** 18+ and npm/pnpm
-- **Python** 3.11+ 
-- **Firebase** project with Authentication and Firestore enabled
+- Node.js 18+ and npm
+- Python 3.11+
 
-### 🎯 Installation & Setup
+### 1. Open the project root
 
-**1. Clone and Setup Backend**
 ```bash
-git clone https://github.com/AdityaC-0605/Zero-Trust-Security-Framework.git
-cd Zero-Trust-Security-Framework/backend
-
-# Create virtual environment and install dependencies
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Configure Firebase credentials
-cp firebase-credentials.json.example firebase-credentials.json
-# Add your Firebase service account key to firebase-credentials.json
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
+cd /Users/aditya/Documents/Shh-Project
 ```
 
-**2. Setup Frontend**
+### 2. Prepare environment files (first time only)
+
 ```bash
-cd ../apps/security-ui
+# Backend
+cp backend/.env.example backend/.env
+cp backend/firebase-credentials.json.example backend/firebase-credentials.json
 
-# Install dependencies
-npm install
-
-# Configure environment
-cp .env.example .env.local
-# Add your Firebase web app configuration to .env.local
+# Frontend
+cp apps/security-ui/env.example apps/security-ui/.env.local
 ```
 
-**3. Initialize Database**
+Notes:
+- Add real Firebase credentials if you want full Firebase-backed flows.
+- For local/dev testing, the app can still start without complete production credentials.
+
+### 3. Start everything (recommended)
+
 ```bash
-cd ../../backend
-source venv/bin/activate
-
-# Create default resource segments
-python create_default_resources.py
-
-# Create test users (optional)
-python create_test_user.py
-```
-
-**4. Start the Application**
-
-**Option A: Start Both Services**
-```bash
-# From project root
 ./start_all.sh
 ```
 
-**Option B: Start Individually**
-```bash
-# Terminal 1: Backend
-./start_backend.sh
+This script:
+- starts backend on port `5001`
+- starts frontend on port `3000` (or next free port if `3000` is busy)
 
-# Terminal 2: Frontend  
+### 4. Open the app
+
+- Frontend: `http://localhost:3000` (or the port printed by the script)
+- Backend API: `http://localhost:5001`
+- Health check: `http://localhost:5001/health`
+
+### Run services separately (optional)
+
+Use two terminals from project root:
+
+```bash
+# Terminal 1
+./start_backend.sh
+```
+
+```bash
+# Terminal 2
 ./start_frontend.sh
 ```
 
-**5. Access the Application**
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5001
-- **Health Check**: http://localhost:5001/health
+### Stop services
+
+- If started in the foreground, press `Ctrl+C` in each terminal.
+
+### Common startup issues
+
+- `Permission denied` on scripts:
+```bash
+chmod +x start_all.sh start_backend.sh start_frontend.sh
+```
+- Frontend port already in use: script auto-picks next available port.
+- Backend dependency issues: recreate venv and reinstall:
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements_minimal.txt
+```
 
 ---
 

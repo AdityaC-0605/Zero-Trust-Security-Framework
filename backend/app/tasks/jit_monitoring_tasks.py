@@ -55,18 +55,18 @@ def monitor_jit_access_sessions(self):
             
             # Check if session has expired
             if expires_at <= current_time:
-                await _expire_jit_session(db, doc.reference, request_data, current_time)
+                _expire_jit_session(db, doc.reference, request_data, current_time)
                 expired_count += 1
                 continue
             
             # Check if session is expiring soon (within 30 minutes)
             time_until_expiry = expires_at - current_time
             if time_until_expiry <= timedelta(minutes=30):
-                await _send_expiration_warning(db, request_data, time_until_expiry)
+                _send_expiration_warning(db, request_data, time_until_expiry)
                 warning_count += 1
             
             # Monitor for anomalous behavior
-            anomaly_detected = await _monitor_session_behavior(db, request_data, current_time)
+            anomaly_detected = _monitor_session_behavior(db, request_data, current_time)
             if anomaly_detected:
                 anomaly_count += 1
         
@@ -115,11 +115,11 @@ def cleanup_expired_jit_sessions(self):
             expires_at = request_data.get('expiresAt')
             
             if expires_at and isinstance(expires_at, datetime) and expires_at <= current_time:
-                await _expire_jit_session(db, doc.reference, request_data, current_time)
+                _expire_jit_session(db, doc.reference, request_data, current_time)
                 expired_count += 1
         
         # Clean up old monitoring data (older than 30 days)
-        await _cleanup_old_monitoring_data(db, current_time)
+        _cleanup_old_monitoring_data(db, current_time)
         
         logger.info(f"JIT cleanup completed: {expired_count} sessions expired")
         
@@ -200,7 +200,7 @@ def generate_jit_activity_report(self, period_hours: int = 24):
         }
 
 
-async def _expire_jit_session(db, doc_ref, request_data: Dict[str, Any], current_time: datetime):
+def _expire_jit_session(db, doc_ref, request_data: Dict[str, Any], current_time: datetime):
     """Expire a JIT session and create audit log"""
     try:
         request_id = request_data.get('requestId')
@@ -215,20 +215,20 @@ async def _expire_jit_session(db, doc_ref, request_data: Dict[str, Any], current
         })
         
         # Create audit log
-        await create_audit_log(
+        create_audit_log(
             db,
-            event_type='jit_access',
-            sub_type='session_expired',
+            event_type='access_request',
             user_id='system',
-            target_user_id=user_id,
-            resource_segment_id=resource_segment_id,
             action='JIT access session expired automatically',
             result='success',
             details={
                 'request_id': request_id,
+                'target_user_id': user_id,
                 'expired_at': current_time.isoformat(),
                 'expiration_type': 'automatic'
-            }
+            },
+            resource=f"jitAccessRequests/{request_id}",
+            severity='low'
         )
         
         # Get segment name for notification
@@ -236,18 +236,13 @@ async def _expire_jit_session(db, doc_ref, request_data: Dict[str, Any], current
         segment_name = segment.name if segment else 'Unknown Resource'
         
         # Create notification for user
-        await create_notification(
+        create_notification(
             db,
             user_id=user_id,
             title='JIT Access Expired',
             message=f'Your JIT access to {segment_name} has expired',
-            notification_type='jit_access_expired',
-            priority='low',
-            data={
-                'request_id': request_id,
-                'segment_name': segment_name,
-                'expired_at': current_time.isoformat()
-            }
+            notification_type='system_update',
+            related_resource_id=request_id
         )
         
         logger.info(f"JIT session expired: {request_id}")
@@ -256,7 +251,7 @@ async def _expire_jit_session(db, doc_ref, request_data: Dict[str, Any], current
         logger.error(f"Error expiring JIT session: {str(e)}")
 
 
-async def _send_expiration_warning(db, request_data: Dict[str, Any], time_remaining: timedelta):
+def _send_expiration_warning(db, request_data: Dict[str, Any], time_remaining: timedelta):
     """Send expiration warning to user"""
     try:
         user_id = request_data.get('userId')
@@ -278,18 +273,13 @@ async def _send_expiration_warning(db, request_data: Dict[str, Any], time_remain
         minutes_remaining = int(time_remaining.total_seconds() / 60)
         
         # Create notification
-        await create_notification(
+        create_notification(
             db,
             user_id=user_id,
             title='JIT Access Expiring Soon',
             message=f'Your JIT access to {segment_name} will expire in {minutes_remaining} minutes',
-            notification_type='jit_access_warning',
-            priority='medium',
-            data={
-                'request_id': request_id,
-                'segment_name': segment_name,
-                'minutes_remaining': minutes_remaining
-            }
+            notification_type='system_update',
+            related_resource_id=request_id
         )
         
         # Record that warning was sent
@@ -306,7 +296,7 @@ async def _send_expiration_warning(db, request_data: Dict[str, Any], time_remain
         logger.error(f"Error sending expiration warning: {str(e)}")
 
 
-async def _monitor_session_behavior(db, request_data: Dict[str, Any], current_time: datetime) -> bool:
+def _monitor_session_behavior(db, request_data: Dict[str, Any], current_time: datetime) -> bool:
     """Monitor JIT session for anomalous behavior"""
     try:
         user_id = request_data.get('userId')
@@ -329,7 +319,7 @@ async def _monitor_session_behavior(db, request_data: Dict[str, Any], current_ti
         
         if behavioral_result.get('anomaly_detected', False):
             # Flag anomalous behavior
-            await _flag_anomalous_behavior(db, request_data, behavioral_result, current_time)
+            _flag_anomalous_behavior(db, request_data, behavioral_result, current_time)
             return True
         
         return False
@@ -339,8 +329,8 @@ async def _monitor_session_behavior(db, request_data: Dict[str, Any], current_ti
         return False
 
 
-async def _flag_anomalous_behavior(db, request_data: Dict[str, Any], 
-                                 behavioral_result: Dict[str, Any], current_time: datetime):
+def _flag_anomalous_behavior(db, request_data: Dict[str, Any], 
+                             behavioral_result: Dict[str, Any], current_time: datetime):
     """Flag anomalous behavior during JIT session"""
     try:
         user_id = request_data.get('userId')
@@ -348,22 +338,23 @@ async def _flag_anomalous_behavior(db, request_data: Dict[str, Any],
         resource_segment_id = request_data.get('resourceSegmentId')
         
         # Create audit log for anomaly
-        await create_audit_log(
+        create_audit_log(
             db,
-            event_type='jit_access',
-            sub_type='anomaly_detected',
+            event_type='security_violation',
             user_id='system',
-            target_user_id=user_id,
-            resource_segment_id=resource_segment_id,
             action='Anomalous behavior detected during JIT session',
-            result='warning',
+            result='failure',
             details={
                 'request_id': request_id,
+                'target_user_id': user_id,
+                'resource_segment_id': resource_segment_id,
                 'anomaly_type': behavioral_result.get('anomaly_type', 'behavioral'),
                 'confidence': behavioral_result.get('confidence', 0),
                 'detected_at': current_time.isoformat(),
                 'behavioral_factors': behavioral_result.get('factors', [])
-            }
+            },
+            resource=f"jitAccessRequests/{request_id}",
+            severity='high'
         )
         
         # Get segment and user information
@@ -379,21 +370,13 @@ async def _flag_anomalous_behavior(db, request_data: Dict[str, Any],
             for admin_doc in admin_query.stream():
                 admin_data = admin_doc.to_dict()
                 
-                await create_notification(
+                create_notification(
                     db,
                     user_id=admin_data['userId'],
                     title='JIT Session Anomaly Detected',
                     message=f'Anomalous behavior detected in JIT session for {user.name if user else "unknown user"} accessing {segment.name if segment else "unknown resource"}',
-                    notification_type='jit_anomaly_alert',
-                    priority='high',
-                    data={
-                        'request_id': request_id,
-                        'user_id': user_id,
-                        'user_name': user.name if user else 'Unknown',
-                        'segment_name': segment.name if segment else 'Unknown',
-                        'anomaly_confidence': behavioral_result.get('confidence', 0),
-                        'detected_at': current_time.isoformat()
-                    }
+                    notification_type='security_alert',
+                    related_resource_id=request_id
                 )
         
         logger.warning(f"Anomalous behavior flagged for JIT session: {request_id}")
@@ -402,7 +385,7 @@ async def _flag_anomalous_behavior(db, request_data: Dict[str, Any],
         logger.error(f"Error flagging anomalous behavior: {str(e)}")
 
 
-async def _cleanup_old_monitoring_data(db, current_time: datetime):
+def _cleanup_old_monitoring_data(db, current_time: datetime):
     """Clean up old monitoring data to prevent database bloat"""
     try:
         # Clean up old expiration warnings (older than 7 days)

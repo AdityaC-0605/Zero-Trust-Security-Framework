@@ -6,6 +6,7 @@ and automated cleanup operations.
 """
 
 import logging
+import asyncio
 from datetime import datetime, timedelta
 from celery import Celery
 from ..services.visitor_service import visitor_service
@@ -86,7 +87,7 @@ def send_session_expiration_warnings(self):
                     continue
             
             # Send expiration warning
-            await visitor_service._notify_session_expiration_warning(visitor_data)
+            asyncio.run(visitor_service._notify_session_expiration_warning(visitor_data))
             
             # Update last warning timestamp
             doc.reference.update({
