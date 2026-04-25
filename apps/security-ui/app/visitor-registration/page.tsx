@@ -573,7 +573,8 @@ export default function VisitorRegistrationPage() {
 
         {successId && (
           <div className="text-xs text-success border border-success/30 bg-success/10 rounded-md p-3">
-            Visitor registered: {successId}
+            Registration submitted successfully! Your ID is: <strong>{successId}</strong>. 
+            Please wait for admin approval before attempting to access the campus.
           </div>
         )}
       </div>

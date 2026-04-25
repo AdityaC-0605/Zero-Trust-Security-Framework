@@ -19,6 +19,7 @@ __pycache__/
 *.so
 .Python
 backend/venv/
+backend/.venv/
 backend/env/
 *.egg-info/
 dist/
@@ -62,3 +63,9 @@ backend/ml_models/*.pt
 
 # GeoIP databases (too large for git)
 backend/geoip2/*.mmdb
+
+# Scratch and loose logs
+*.txt
+backend/scratch_*.py
+test-proxy.js
+test_auth.py

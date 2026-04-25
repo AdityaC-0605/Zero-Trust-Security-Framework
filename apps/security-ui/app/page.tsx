@@ -110,6 +110,15 @@ export default function HomePage() {
         color: 'text-chart-3',
         bgColor: 'bg-chart-3/10',
         roles: ['admin']
+      },
+      {
+        title: 'Admin Dashboard',
+        description: 'Approve visitor requests and manage system security',
+        icon: Shield,
+        href: '/admin-dashboard',
+        color: 'text-primary',
+        bgColor: 'bg-primary/10',
+        roles: ['admin']
       }
     ],
     []

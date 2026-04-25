@@ -114,7 +114,7 @@ class VisitorService:
                 max_duration=registration_data.expected_duration,
                 assigned_route=registration_data.assigned_route,
                 credentials=credentials,
-                status="active"
+                status="pending"
             )
             
             # Store visitor in Firestore
@@ -180,7 +180,7 @@ class VisitorService:
         
         Args:
             host_id: Host user ID
-            status_filter: Optional status filter ('active', 'completed', 'expired', 'terminated')
+            status_filter: Optional status filter
             
         Returns:
             List[Visitor]: List of visitors for the host
@@ -207,6 +207,133 @@ class VisitorService:
         except Exception as e:
             logger.error(f"Error retrieving visitors for host {host_id}: {str(e)}")
             raise ValidationError(f"Failed to retrieve visitors: {str(e)}")
+
+    async def get_pending_visitors(self) -> List[Visitor]:
+        """
+        Get all visitors with pending status (admin only)
+        
+        Returns:
+            List[Visitor]: List of pending visitors
+        """
+        try:
+            query = self.db.collection('visitors').where('status', '==', 'pending')
+            query = query.order_by('created_at', direction=firestore.Query.DESCENDING)
+            
+            visitors = []
+            docs = query.stream()
+            
+            for doc in docs:
+                visitor_data = doc.to_dict()
+                visitor = Visitor(**visitor_data)
+                visitors.append(visitor)
+            
+            return visitors
+            
+        except Exception as e:
+            logger.error(f"Error retrieving pending visitors: {str(e)}")
+            raise ValidationError(f"Failed to retrieve pending visitors: {str(e)}")
+
+    async def approve_visitor(self, visitor_id: str, admin_id: str) -> Visitor:
+        """
+        Approve a pending visitor registration
+        
+        Args:
+            visitor_id: Visitor ID
+            admin_id: Admin ID approving the request
+            
+        Returns:
+            Visitor: Updated visitor object
+        """
+        try:
+            # Validate admin permissions
+            await self._validate_admin_permissions(admin_id)
+            
+            # Get visitor
+            visitor_ref = self.db.collection('visitors').document(visitor_id)
+            visitor_doc = visitor_ref.get()
+            
+            if not visitor_doc.exists:
+                raise NotFoundError(f"Visitor {visitor_id} not found")
+            
+            visitor_data = visitor_doc.to_dict()
+            visitor = Visitor(**visitor_data)
+            
+            if visitor.status != 'pending':
+                raise ValidationError(f"Visitor is not in pending status (current: {visitor.status})")
+            
+            # Update visitor status
+            visitor.status = 'active'
+            visitor.approved_by = admin_id
+            visitor.approved_at = datetime.utcnow()
+            
+            # Update in Firestore
+            await self._update_visitor(visitor)
+            
+            # Log approval
+            await self._log_visitor_event(visitor_id, "visitor_approved", {
+                "approved_by": admin_id,
+                "timestamp": visitor.approved_at.isoformat()
+            })
+            
+            logger.info(f"Visitor {visitor_id} approved by admin {admin_id}")
+            return visitor
+            
+        except Exception as e:
+            if isinstance(e, (NotFoundError, ValidationError, AuthorizationError)):
+                raise
+            logger.error(f"Error approving visitor {visitor_id}: {str(e)}")
+            raise ValidationError(f"Failed to approve visitor: {str(e)}")
+
+    async def decline_visitor(self, visitor_id: str, admin_id: str, reason: str) -> Visitor:
+        """
+        Decline a pending visitor registration
+        
+        Args:
+            visitor_id: Visitor ID
+            admin_id: Admin ID declining the request
+            reason: Reason for declining
+            
+        Returns:
+            Visitor: Updated visitor object
+        """
+        try:
+            # Validate admin permissions
+            await self._validate_admin_permissions(admin_id)
+            
+            # Get visitor
+            visitor_ref = self.db.collection('visitors').document(visitor_id)
+            visitor_doc = visitor_ref.get()
+            
+            if not visitor_doc.exists:
+                raise NotFoundError(f"Visitor {visitor_id} not found")
+            
+            visitor_data = visitor_doc.to_dict()
+            visitor = Visitor(**visitor_data)
+            
+            if visitor.status != 'pending':
+                raise ValidationError(f"Visitor is not in pending status (current: {visitor.status})")
+            
+            # Update visitor status
+            visitor.status = 'denied'
+            
+            # Update in Firestore
+            await self._update_visitor(visitor)
+            
+            # Log decline
+            await self._log_visitor_event(visitor_id, "visitor_declined", {
+                "declined_by": admin_id,
+                "reason": reason,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            
+            logger.info(f"Visitor {visitor_id} declined by admin {admin_id}: {reason}")
+            return visitor
+            
+        except Exception as e:
+            if isinstance(e, (NotFoundError, ValidationError, AuthorizationError)):
+                raise
+            logger.error(f"Error declining visitor {visitor_id}: {str(e)}")
+            raise ValidationError(f"Failed to decline visitor: {str(e)}")
     
     async def track_visitor_access(
         self,

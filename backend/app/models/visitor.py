@@ -83,7 +83,9 @@ class Visitor(BaseModel):
     route_compliance: RouteCompliance = Field(default_factory=RouteCompliance, description="Route compliance tracking")
     
     # Status and management
-    status: str = Field(default="active", description="Visitor status")
+    status: str = Field(default="pending", description="Visitor status")
+    approved_by: Optional[str] = Field(None, description="Admin ID who approved the visit")
+    approved_at: Optional[datetime] = Field(None, description="Timestamp of approval")
     alerts: List[str] = Field(default_factory=list, description="Alert IDs associated with visitor")
     session_extensions: List[SessionExtension] = Field(default_factory=list, description="Session extension history")
     
@@ -97,7 +99,7 @@ class Visitor(BaseModel):
     @validator('status')
     def validate_status(cls, v):
         """Validate visitor status"""
-        allowed_statuses = ['active', 'completed', 'expired', 'terminated']
+        allowed_statuses = ['pending', 'active', 'completed', 'expired', 'terminated', 'denied']
         if v not in allowed_statuses:
             raise ValueError(f'Status must be one of: {allowed_statuses}')
         return v
@@ -265,6 +267,8 @@ class Visitor(BaseModel):
             "accessLog": [entry.dict() for entry in self.access_log],
             "routeCompliance": self.route_compliance.dict(),
             "status": self.status,
+            "approvedBy": self.approved_by,
+            "approvedAt": self.approved_at.isoformat() if self.approved_at else None,
             "alerts": self.alerts,
             "sessionExtensions": [ext.dict() for ext in self.session_extensions],
             "credentials": self.credentials.dict(),
@@ -308,7 +312,7 @@ class VisitorUpdateRequest(BaseModel):
     def validate_status(cls, v):
         """Validate visitor status"""
         if v is not None:
-            allowed_statuses = ['active', 'completed', 'expired', 'terminated']
+            allowed_statuses = ['pending', 'active', 'completed', 'expired', 'terminated', 'denied']
             if v not in allowed_statuses:
                 raise ValueError(f'Status must be one of: {allowed_statuses}')
         return v

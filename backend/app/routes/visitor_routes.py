@@ -404,6 +404,78 @@ async def get_all_active_visitors():
     })
 
 
+@visitor_bp.route('/pending', methods=['GET'])
+@require_auth
+@require_role(['admin'])
+@handle_visitor_errors
+async def get_pending_visitors():
+    """
+    Get all pending visitors (admin only)
+    
+    Returns:
+        JSON response with list of all pending visitors
+    """
+    visitors = await visitor_service.get_pending_visitors()
+    
+    return jsonify({
+        'success': True,
+        'visitors': [visitor.to_dict() for visitor in visitors],
+        'count': len(visitors)
+    })
+
+
+@visitor_bp.route('/<visitor_id>/approve', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+@handle_visitor_errors
+async def approve_visitor(visitor_id):
+    """
+    Approve a pending visitor (admin only)
+    
+    Args:
+        visitor_id: Visitor ID
+        
+    Returns:
+        JSON response with updated visitor data
+    """
+    visitor = await visitor_service.approve_visitor(visitor_id, request.user_id)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Visitor approved successfully',
+        'visitor': visitor.to_dict()
+    })
+
+
+@visitor_bp.route('/<visitor_id>/decline', methods=['POST'])
+@require_auth
+@require_role(['admin'])
+@handle_visitor_errors
+async def decline_visitor(visitor_id):
+    """
+    Decline a pending visitor (admin only)
+    
+    Args:
+        visitor_id: Visitor ID
+        
+    Request Body:
+        reason: Reason for declining
+        
+    Returns:
+        JSON response with updated visitor data
+    """
+    data = request.get_json()
+    reason = data.get('reason', 'No reason provided')
+    
+    visitor = await visitor_service.decline_visitor(visitor_id, request.user_id, reason)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Visitor declined successfully',
+        'visitor': visitor.to_dict()
+    })
+
+
 @visitor_bp.route('/<visitor_id>/compliance/monitor', methods=['POST'])
 @require_auth
 @handle_visitor_errors

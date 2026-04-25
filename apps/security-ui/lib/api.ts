@@ -314,7 +314,25 @@ export async function getMonitoringLogsSummary(hours?: number) {
 }
 
 export async function getActiveVisitors() {
-  return apiFetch<any>("/api/visitors/active")
+  return apiFetch<{ success: boolean; visitors: any[]; count: number }>("/api/visitors/active")
+}
+
+export async function getPendingVisitors() {
+  return apiFetch<{ success: boolean; visitors: any[]; count: number }>("/api/visitors/pending")
+}
+
+export async function approveVisitor(visitorId: string) {
+  return apiFetch<{ success: boolean; message: string; visitor: any }>(`/api/visitors/${visitorId}/approve`, {
+    method: "POST",
+  })
+}
+
+export async function declineVisitor(visitorId: string, reason: string) {
+  return apiFetch<{ success: boolean; message: string; visitor: any }>(`/api/visitors/${visitorId}/decline`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  })
 }
 
 export async function listUserDevices(userId: string) {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { MapIcon, Clock } from "lucide-react"
+import { MapIcon, Clock, RefreshCcw, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,30 +18,28 @@ export default function VisitorTrackingPage() {
   const [error, setError] = useState<string | null>(null)
   const unauthorized = !sessionLoading && authenticated && user?.role !== "admin"
 
+  const fetchVisitors = async () => {
+    try {
+      const res = await getActiveVisitors()
+      setRawVisitors(res.visitors || [])
+      setError(null)
+    } catch (e) {
+      setError(e instanceof HttpError ? e.message : "Failed to load visitors")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (sessionLoading || !authenticated) return
     if (user?.role !== "admin") return
 
-    let cancelled = false
-    async function run() {
-      setIsLoading(true)
-      setError(null)
-      try {
-        const res = await getActiveVisitors()
-        if (cancelled) return
-        setRawVisitors(res.visitors || [])
-      } catch (e) {
-        if (cancelled) return
-        setError(e instanceof HttpError ? e.message : "Failed to load visitors")
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-
-    run()
-    return () => {
-      cancelled = true
-    }
+    fetchVisitors()
+    
+    // Set up polling every 5 seconds
+    const interval = setInterval(fetchVisitors, 5000)
+    
+    return () => clearInterval(interval)
   }, [authenticated, sessionLoading, user?.role])
 
   const visitors = useMemo(() => {
@@ -94,11 +92,74 @@ export default function VisitorTrackingPage() {
           <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
             {isLoading ? "..." : `${visitors.length} ACTIVE VISITORS`}
           </Badge>
+          <Button variant="ghost" size="icon" onClick={fetchVisitors} disabled={isLoading} className="h-8 w-8 ml-2">
+            <RefreshCcw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-full border-l border-border bg-card/30 backdrop-blur-sm flex flex-col shrink-0">
+        {/* Main Map Area */}
+        <main className="flex-1 relative bg-slate-950 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:40px_40px] opacity-20" />
+          
+          {/* Map Grid/Blueprint */}
+          <div className="absolute inset-12 border-2 border-border/20 rounded-3xl overflow-hidden bg-card/5">
+            <svg className="w-full h-full opacity-40" viewBox="0 0 1000 600">
+              <rect x="100" y="100" width="200" height="150" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" />
+              <text x="110" y="125" fill="currentColor" fontSize="12" className="font-mono">BUILDING A</text>
+              
+              <rect x="400" y="50" width="250" height="200" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" />
+              <text x="410" y="75" fill="currentColor" fontSize="12" className="font-mono">MAIN LABS</text>
+              
+              <rect x="700" y="300" width="200" height="200" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" />
+              <text x="710" y="325" fill="currentColor" fontSize="12" className="font-mono">FACULTY HUB</text>
+              
+              <circle cx="500" cy="500" r="100" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="5 5" />
+              <text x="460" y="505" fill="currentColor" fontSize="12" className="font-mono">CENTRAL PLAZA</text>
+            </svg>
+
+            {/* Visitor Dots on Map */}
+            {visitors.map((v, i) => {
+              // Deterministic but "random" positions for demo
+              const x = 150 + (parseInt(v.id.slice(0, 2), 16) % 700)
+              const y = 100 + (parseInt(v.id.slice(2, 4), 16) % 400)
+              
+              return (
+                <div 
+                  key={`dot-${v.id}`}
+                  className="absolute transition-all duration-1000 ease-in-out"
+                  style={{ left: `${x}px`, top: `${y}px` }}
+                >
+                  <div className={`w-3 h-3 rounded-full animate-ping absolute ${v.status === 'Alert' ? 'bg-destructive' : 'bg-accent'}`} />
+                  <div className={`w-3 h-3 rounded-full relative ${v.status === 'Alert' ? 'bg-destructive' : 'bg-accent'} border-2 border-white`} />
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 px-2 py-0.5 rounded text-[10px] font-bold text-white">
+                    {v.name}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Map Overlay Controls */}
+          <div className="absolute bottom-6 left-6 flex items-center gap-3">
+            <div className="bg-card/80 backdrop-blur-md p-3 rounded-xl border border-border flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">System Online</span>
+              </div>
+              <div className="w-px h-4 bg-border" />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground uppercase">Signal Strength:</span>
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4].map(i => <div key={i} className="w-1 h-2 bg-accent rounded-full" />)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <aside className="w-96 border-l border-border bg-card/30 backdrop-blur-sm flex flex-col shrink-0">
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
               {error && (
@@ -106,8 +167,17 @@ export default function VisitorTrackingPage() {
                   {error}
                 </div>
               )}
-              {isLoading && (
-                <div className="text-xs text-muted-foreground">Loading visitors...</div>
+              {isLoading && visitors.length === 0 && (
+                <div className="flex flex-col items-center justify-center h-32 space-y-2">
+                  <RefreshCcw className="w-5 h-5 text-muted-foreground animate-spin" />
+                  <p className="text-xs text-muted-foreground">Initializing tracking...</p>
+                </div>
+              )}
+              {visitors.length === 0 && !isLoading && (
+                <div className="flex flex-col items-center justify-center h-32 text-center">
+                  <Users className="w-8 h-8 text-muted-foreground mb-2" />
+                  <p className="text-xs text-muted-foreground">No active visitors currently on campus.</p>
+                </div>
               )}
               {visitors.map((visitor) => (
                 <Card
