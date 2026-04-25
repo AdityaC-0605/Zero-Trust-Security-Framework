@@ -8,12 +8,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { registerVisitor, HttpError } from "@/lib/api"
-import { useSession } from "@/hooks/use-session"
+import { publicRegisterVisitor, HttpError } from "@/lib/api"
 import AccessDenied from "@/components/access-denied"
 
 export default function VisitorRegistrationPage() {
-  const { loading: sessionLoading, authenticated, user } = useSession({ redirectToLogin: true })
   const [step, setStep] = useState(1)
   const [photo, setPhoto] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
@@ -36,10 +34,6 @@ export default function VisitorRegistrationPage() {
   const [hostName, setHostName] = useState("")
   const [hostId, setHostId] = useState("")
   const [hostDepartment, setHostDepartment] = useState("")
-
-  if (!sessionLoading && authenticated && !(user?.role === "admin" || user?.role === "faculty")) {
-    return <AccessDenied required={["admin", "faculty"]} />
-  }
 
   const steps = [
     { id: 1, name: "Personal Info", icon: User },
@@ -427,7 +421,7 @@ export default function VisitorRegistrationPage() {
                   phone: phone.trim(),
                   purpose: purpose.trim(),
                   expectedDuration,
-                  user: user ? { id: user.id, role: user.role, name: user.name } : null
+                  user: null
                 })
                 
                 // Validate required fields with detailed error messages
@@ -478,8 +472,8 @@ export default function VisitorRegistrationPage() {
                     restricted_areas: [],
                     route_description: `Route to ${hostDepartment || hostName || "destination"}`,
                   },
-                  host_id: hostId || (user?.id || ""),
-                  host_name: hostName || (user?.name || ""),
+                  host_id: hostId || "",
+                  host_name: hostName || "",
                   host_department: hostDepartment || "",
                 }
 
@@ -498,7 +492,7 @@ export default function VisitorRegistrationPage() {
                 setSubmitting(true)
                 try {
                   console.log("Sending registration request...")
-                  const res = await registerVisitor(fd)
+                  const res = await publicRegisterVisitor(fd)
                   console.log("Registration successful:", res)
                   const id = res?.visitor?.visitorId || res?.visitor?.visitor_id || res?.visitor?.id
                   setSuccessId(id || "REGISTERED")
@@ -562,7 +556,7 @@ export default function VisitorRegistrationPage() {
               <details className="mt-2">
                 <summary className="cursor-pointer text-xs opacity-70">Debug Info</summary>
                 <div className="mt-1 text-xs opacity-70 font-mono">
-                  <div>User: {user ? `${user.name} (${user.role})` : 'Not authenticated'}</div>
+                  <div>User: Not authenticated (Public Portal)</div>
                   <div>Photo: {photoFile ? `${photoFile.name} (${photoFile.size} bytes)` : 'No photo selected'}</div>
                   <div>Form Data: {JSON.stringify({ fullName, phone, purpose, expectedDuration }, null, 2)}</div>
                 </div>

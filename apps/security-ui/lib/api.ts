@@ -356,6 +356,24 @@ export async function registerDevice(input: {
   })
 }
 
+export async function publicRegisterVisitor(formData: FormData) {
+  // Use native fetch to avoid appending Authorization headers for public route
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+  const response = await fetch(`${backendUrl}/api/visitors/public-register`, {
+    method: "POST",
+    body: formData,
+  })
+  if (!response.ok) {
+    let message = "An error occurred"
+    try {
+      const err = await response.json()
+      message = err.error || err.message || message
+    } catch (e) {}
+    throw new HttpError(response.status, message, null)
+  }
+  return response.json()
+}
+
 export async function registerVisitor(formData: FormData) {
   return apiFetch<any>("/api/visitors/register", {
     method: "POST",

@@ -134,6 +134,67 @@ async def register_visitor():
         logger.error(f"Error in visitor registration: {str(e)}")
         return jsonify({'error': f'Registration failed: {str(e)}'}), 500
 
+@visitor_bp.route('/public-register', methods=['POST'])
+@handle_visitor_errors
+async def public_register_visitor():
+    """
+    Register a new visitor publicly (self-registration)
+    """
+    try:
+        print("📝 Public visitor registration request")
+        
+        # Get visitor data from form
+        visitor_data_json = request.form.get('visitorData')
+        if not visitor_data_json:
+            return jsonify({'error': 'Visitor data is required'}), 400
+        
+        import json
+        try:
+            visitor_data = json.loads(visitor_data_json)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid visitor data format'}), 400
+        
+        # Require host ID for public registration
+        if not visitor_data.get('host_id') and not visitor_data.get('hostName'):
+             # We might only have host_name if they search by name, but let's pass whatever we have.
+             # Ideally the UI passes host_id if found, or just host_name.
+             pass
+             
+        # Get photo file
+        if 'photo' not in request.files:
+            return jsonify({'error': 'Visitor photo is required'}), 400
+        
+        photo_file = request.files['photo']
+        if photo_file.filename == '':
+            return jsonify({'error': 'No photo file selected'}), 400
+        
+        # Validate file size (max 10MB)
+        if photo_file.content_length and photo_file.content_length > 10 * 1024 * 1024:
+            return jsonify({'error': 'Photo file size must be less than 10MB'}), 400
+            
+        registration_request = VisitorRegistrationRequest(**visitor_data)
+        
+        # Register visitor (pass is_self_register=True, and use host_id from data)
+        host_id = visitor_data.get('host_id', 'unknown_host')
+        
+        visitor = await visitor_service.register_visitor(
+            registration_request,
+            photo_file,
+            host_id,
+            is_self_register=True
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Visitor registered successfully and pending approval',
+            'visitor': visitor.to_dict()
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error in public visitor registration: {str(e)}")
+        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+
+
 
 @visitor_bp.route('/<visitor_id>', methods=['GET'])
 @require_auth

@@ -64,7 +64,8 @@ class VisitorService:
         self,
         registration_data: VisitorRegistrationRequest,
         photo_file: Any,
-        host_user_id: str
+        host_user_id: str,
+        is_self_register: bool = False
     ) -> Visitor:
         """
         Register a new visitor with photo upload and credential generation
@@ -82,8 +83,9 @@ class VisitorService:
             AuthorizationError: If host doesn't have permission to register visitors
         """
         try:
-            # Validate host permissions
-            await self._validate_host_permissions(host_user_id)
+            # Validate host permissions unless it's a public self-registration
+            if not is_self_register:
+                await self._validate_host_permissions(host_user_id)
             
             # Generate unique visitor ID
             visitor_id = str(uuid.uuid4())
